@@ -265,6 +265,57 @@ function Index() {
           and every object is encoded from its own coordinates — no virtual loudspeaker stage, no
           phantom-source blur. Everything runs in this browser tab.
         </p>
+
+        {/* Global bed reference profile */}
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+            {PROFILES.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setProfile(p.id)}
+                disabled={rendering}
+                className={`rounded-md px-4 py-2 text-left text-sm transition-colors disabled:opacity-50 ${
+                  profile === p.id
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <span className="block font-semibold">{p.label}</span>
+                <span className="block font-mono text-[10px]">{p.blurb}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Bed speaker angles follow the selected reference. Explicit coordinates written in the
+            file always win over both.
+          </p>
+        </div>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="font-mono text-[11px] text-muted-foreground">
+            <tbody>
+              <tr>
+                <td className="pr-3 text-foreground">Bed</td>
+                {BED_ORDER.map((r) => (
+                  <td key={r} className="px-2 text-foreground">
+                    {r}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="pr-3">Az / El</td>
+                {BED_ORDER.map((r) => {
+                  const g = BED_PROFILES[profile][r]!;
+                  return (
+                    <td key={r} className="px-2 whitespace-nowrap">
+                      {g.az}° / {g.el}°
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </header>
 
       {/* Dropzone */}
