@@ -21,11 +21,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { analyseAdm } from "@/engine/adm";
+import { analyseAdm, BED_ORDER, BED_PROFILES } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
 import { channelCount, rad2deg, verifyBasis } from "@/engine/sh";
 import type {
   AnalysisResult,
+  BedProfile,
+  ContainerInfo,
   LfeMode,
   WorkerRequest,
   WorkerResponse,
@@ -75,8 +77,15 @@ const fmtTime = (s: number) => {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 };
 
+const PROFILES: { id: BedProfile; label: string; blurb: string }[] = [
+  { id: "dolby", label: "Dolby mode", blurb: "Atmos studio reference · sides ±100° · tops ±90°/+45°" },
+  { id: "itu", label: "ITU mode", blurb: "BS.2051 / BS.2094 nominal · sides ±90° · tops ±90°/+30°" },
+];
+
 function Index() {
   const [file, setFile] = useState<File | null>(null);
+  const [container, setContainer] = useState<ContainerInfo | null>(null);
+  const [profile, setProfile] = useState<BedProfile>("dolby");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,21 +124,36 @@ function Index() {
     return () => cancelAnimationFrame(raf);
   }, [analysis, rendering]);
 
-  const loadFile = useCallback(async (f: File) => {
-    setError(null);
-    setAnalysis(null);
-    setResult(null);
-    setFile(f);
-    setAnalysing(true);
+  const loadFile = useCallback(
+    async (f: File) => {
+      setError(null);
+      setAnalysis(null);
+      setContainer(null);
+      setResult(null);
+      setFile(f);
+      setAnalysing(true);
+      try {
+        const parsed = await parseContainer(f);
+        setContainer(parsed);
+        setAnalysis(analyseAdm(parsed, profile));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setAnalysing(false);
+      }
+    },
+    [profile],
+  );
+
+  // Re-resolve bed positions instantly when the reference profile changes.
+  useEffect(() => {
+    if (!container) return;
     try {
-      const container = await parseContainer(f);
-      setAnalysis(analyseAdm(container));
+      setAnalysis(analyseAdm(container, profile));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setAnalysing(false);
     }
-  }, []);
+  }, [container, profile]);
 
   const startRender = useCallback(async () => {
     if (!file || !analysis) return;
@@ -241,6 +265,57 @@ function Index() {
           and every object is encoded from its own coordinates — no virtual loudspeaker stage, no
           phantom-source blur. Everything runs in this browser tab.
         </p>
+
+        {/* Global bed reference profile */}
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+            {PROFILES.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setProfile(p.id)}
+                disabled={rendering}
+                className={`rounded-md px-4 py-2 text-left text-sm transition-colors disabled:opacity-50 ${
+                  profile === p.id
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <span className="block font-semibold">{p.label}</span>
+                <span className="block font-mono text-[10px]">{p.blurb}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Bed speaker angles follow the selected reference. Explicit coordinates written in the
+            file always win over both.
+          </p>
+        </div>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="font-mono text-[11px] text-muted-foreground">
+            <tbody>
+              <tr>
+                <td className="pr-3 text-foreground">Bed</td>
+                {BED_ORDER.map((r) => (
+                  <td key={r} className="px-2 text-foreground">
+                    {r}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="pr-3">Az / El</td>
+                {BED_ORDER.map((r) => {
+                  const g = BED_PROFILES[profile][r]!;
+                  return (
+                    <td key={r} className="px-2 whitespace-nowrap">
+                      {g.az}° / {g.el}°
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </header>
 
       {/* Dropzone */}

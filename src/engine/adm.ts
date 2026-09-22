@@ -8,6 +8,7 @@ import {
 import { cartesianToPolar, deg2rad } from "./sh";
 import type {
   AnalysisResult,
+  BedProfile,
   ContainerInfo,
   RenderSource,
   ResolutionStep,
@@ -15,8 +16,14 @@ import type {
   TrajectoryPoint,
 } from "./types";
 
-/** Dolby Atmos 7.1.2 bed reference geometry (azimuth +, elevation in degrees). */
-export const BED_LAYOUT: Record<string, { az: number; el: number; label: string }> = {
+export interface BedGeometry {
+  az: number;
+  el: number;
+  label: string;
+}
+
+/** Dolby Atmos 7.1.2 studio reference geometry (azimuth +, elevation in degrees). */
+export const DOLBY_BED_LAYOUT: Record<string, BedGeometry> = {
   L: { az: 30, el: 0, label: "L" },
   R: { az: -30, el: 0, label: "R" },
   C: { az: 0, el: 0, label: "C" },
@@ -28,6 +35,33 @@ export const BED_LAYOUT: Record<string, { az: number; el: number; label: string 
   Ltm: { az: 90, el: 45, label: "Ltm" },
   Rtm: { az: -90, el: 45, label: "Rtm" },
 };
+
+/** ITU-R BS.2051 / BS.2094 nominal geometry for the same 7.1.2 roles. */
+export const ITU_BED_LAYOUT: Record<string, BedGeometry> = {
+  L: { az: 30, el: 0, label: "M+030" },
+  R: { az: -30, el: 0, label: "M-030" },
+  C: { az: 0, el: 0, label: "M+000" },
+  LFE: { az: 0, el: -30, label: "LFE" },
+  Lss: { az: 90, el: 0, label: "M+090" },
+  Rss: { az: -90, el: 0, label: "M-090" },
+  Lrs: { az: 135, el: 0, label: "M+135" },
+  Rrs: { az: -135, el: 0, label: "M-135" },
+  Ltm: { az: 90, el: 30, label: "U+090" },
+  Rtm: { az: -90, el: 30, label: "U-090" },
+};
+
+export const BED_PROFILES: Record<BedProfile, Record<string, BedGeometry>> = {
+  dolby: DOLBY_BED_LAYOUT,
+  itu: ITU_BED_LAYOUT,
+};
+
+export const BED_PROFILE_LABEL: Record<BedProfile, string> = {
+  dolby: "Dolby Atmos reference",
+  itu: "ITU-R BS.2051 / BS.2094",
+};
+
+/** Back-compat alias — the Dolby layout is the default. */
+export const BED_LAYOUT = DOLBY_BED_LAYOUT;
 
 export const BED_ORDER = ["L", "R", "C", "LFE", "Lss", "Rss", "Lrs", "Rrs", "Ltm", "Rtm"];
 
@@ -185,8 +219,13 @@ function parseBlock(block: Element) {
  * Parses the axml (ITU-R BS.2076) chunk and combines it with the chna table
  * into a flat list of render sources (one per physical WAV track).
  */
-export function analyseAdm(container: ContainerInfo): AnalysisResult {
+export function analyseAdm(
+  container: ContainerInfo,
+  profile: BedProfile = "dolby",
+): AnalysisResult {
   const warnings: string[] = [];
+  const layout = BED_PROFILES[profile];
+  const profileName = BED_PROFILE_LABEL[profile];
   const sampleRate = container.format.sampleRate;
   const sources: RenderSource[] = [];
   const diagnostics: TrackDiagnostic[] = [];
@@ -201,7 +240,7 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
     const n = Math.min(container.format.channels, BED_ORDER.length);
     for (let i = 0; i < n; i++) {
       const role = BED_ORDER[i]!;
-      const geo = BED_LAYOUT[role]!;
+      const geo = layout[role]!;
       sources.push({
         channelIndex: i,
         kind: "bed",
@@ -219,7 +258,7 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
         status: "bed",
         guessed: true,
         name: role,
-        detail: "No ADM metadata — assumed from channel order.",
+        detail: `No ADM metadata — assumed from channel order (${profileName}).`,
         steps: [{ label: "metadata", value: "none", ok: false }],
       });
     }
@@ -427,14 +466,21 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
 
     // --- Common-definition bed channel -------------------------------------
     if (common) {
+      // The catalogue gives the ITU nominal angles. In Dolby mode the matching
+      // 7.1.2 role is placed at the Dolby Atmos studio reference angles instead.
+      const commonRole = roleFromLabel(common.label) ?? roleFromLabel(common.name);
+      const geo = commonRole ? layout[commonRole] : undefined;
+      const azDeg = geo ? geo.az : common.azimuth;
+      const elDeg = geo ? geo.el : common.elevation;
+      const name = commonRole ?? common.label ?? common.name;
       sources.push({
         channelIndex,
         kind: "bed",
-        name: common.label || common.name,
+        name,
         uid: entry.uid,
         isLFE: common.label.toUpperCase().startsWith("LFE"),
-        azimuth: deg2rad(common.azimuth),
-        elevation: deg2rad(common.elevation),
+        azimuth: deg2rad(azDeg),
+        elevation: deg2rad(elDeg),
         gain: 1,
         points: [],
       });
@@ -443,8 +489,8 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
         uid: entry.uid,
         status: "bed",
         guessed,
-        name: common.label || common.name,
-        detail: `${common.name} at ${common.azimuth}° / ${common.elevation}°`,
+        name,
+        detail: `${common.name} (${common.label}) at ${azDeg}° / ${elDeg}° — ${profileName}`,
         steps,
       });
       continue;
@@ -466,23 +512,27 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
     if (isDirect) {
       const block = cf.blocks[0];
       const role = cf.role;
-      const geo = role ? BED_LAYOUT[role] : undefined;
-      // Prefer an explicit position in the file; fall back to the label geometry.
       const fromLabel = roleFromLabel(block?.speakerLabel ?? null);
       const labelCommon = (Object.values(COMMON_CHANNELS) as CommonChannel[]).find(
         (c) => c.label === (block?.speakerLabel ?? "").split(":").pop(),
       );
+      // A recognised 7.1.2 role is always placed at the active profile's
+      // reference angle; anything else keeps the position written in the file.
+      const bedRole = role ?? fromLabel ?? roleFromLabel(labelCommon?.label ?? null);
+      const geo = bedRole ? layout[bedRole] : undefined;
       let az: number | null = null;
       let el: number | null = null;
       let how = "";
+      // Priority 1: explicit non-zero coordinates written in the file.
       if (block && (block.az !== 0 || block.el !== 0)) {
         az = block.az;
         el = block.el;
         how = "explicit position in file";
       } else if (geo) {
+        // Priority 2: recognised 7.1.2 role at the active profile's reference angle.
         az = deg2rad(geo.az);
         el = deg2rad(geo.el);
-        how = `speaker label ${role}`;
+        how = `${bedRole} at ${profileName}`;
       } else if (labelCommon) {
         az = deg2rad(labelCommon.azimuth);
         el = deg2rad(labelCommon.elevation);
