@@ -6,7 +6,7 @@ import type { RenderSource, WorkerRequest, WorkerResponse } from "./types";
 
 const FRAME_BLOCK = 2048; // processing frames per pass
 const RAMP = 64; // sub-block coefficient ramp interval
-const LFE_GAIN = Math.SQRT1_2; // -3 dB injection into W
+import { LFE_MODE_GAIN } from "./types";
 
 /** 4th-order Butterworth low-pass (two cascaded biquads), direct form I. */
 class Butterworth4 {
@@ -147,7 +147,7 @@ async function render(req: WorkerRequest) {
     // --- LFE: 120 Hz low-pass, injected into W only ---
     for (const l of lfes) {
       const filt = lfeFilters.get(l)!;
-      const g = LFE_GAIN * config.masterGain;
+      const g = (LFE_MODE_GAIN[config.lfeMode] ?? Math.SQRT1_2) * config.masterGain;
       const chOff = l.channelIndex * bytesPerSample;
       for (let f = 0; f < frames; f++) {
         const s = filt.process(decode(raw, f * container.blockAlign + chOff));

@@ -308,7 +308,7 @@ function Index() {
                   const g = BED_PROFILES[profile][r]!;
                   return (
                     <td key={r} className="px-2 whitespace-nowrap">
-                      {g.az}° / {g.el}°
+                      {r === "LFE" ? "Omni (W)" : `${g.az}° / ${g.el}°`}
                     </td>
                   );
                 })}
@@ -446,6 +446,8 @@ function Index() {
                   {(
                     [
                       ["inject", "Inject to W (-3 dB)"],
+                      ["inject0", "Inject to W (0 dB)"],
+                      ["inject10", "Inject to W (+10 dB)"],
                       ["exclude", "Exclude LFE"],
                     ] as [LfeMode, string][]
                   ).map(([mode, label]) => (
@@ -464,9 +466,12 @@ function Index() {
                   ))}
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Injection applies a 120 Hz 4th-order Butterworth low-pass to ACN 0 only.
+                  LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN
+                  0 (W) only, never encoded to a direction. +10 dB matches the Dolby subwoofer
+                  in-room calibration offset.
                 </p>
               </div>
+
 
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm">
@@ -564,12 +569,16 @@ function Index() {
                         <span
                           className={s.kind === "bed" ? "text-primary" : "text-accent"}
                         >
-                          {s.isLFE ? "LFE" : s.kind === "bed" ? "DirectSpeakers" : "Object"}
+                          {s.isLFE ? "LFE (Omni → W)" : s.kind === "bed" ? "DirectSpeakers" : "Object"}
                         </span>
                       </td>
                       <td className="p-2 text-muted-foreground">{s.uid}</td>
-                      <td className="p-2 text-right">{rad2deg(s.azimuth).toFixed(1)}°</td>
-                      <td className="p-2 text-right">{rad2deg(s.elevation).toFixed(1)}°</td>
+                      <td className="p-2 text-right">
+                        {s.isLFE ? "Omni" : `${rad2deg(s.azimuth).toFixed(1)}°`}
+                      </td>
+                      <td className="p-2 text-right">
+                        {s.isLFE ? "W ch" : `${rad2deg(s.elevation).toFixed(1)}°`}
+                      </td>
                       <td className="p-2 text-right">{s.points.length || "static"}</td>
                     </tr>
                   ))}

@@ -86,7 +86,15 @@ export interface AnalysisResult {
   diagnostics: TrackDiagnostic[];
 }
 
-export type LfeMode = "inject" | "exclude";
+export type LfeMode = "inject" | "inject0" | "inject10" | "exclude";
+
+/** Linear gain applied to the low-passed LFE before it is summed into ACN 0 (W). */
+export const LFE_MODE_GAIN: Record<LfeMode, number> = {
+  inject: Math.SQRT1_2, // -3 dB
+  inject0: 1, // 0 dB unity
+  inject10: Math.pow(10, 10 / 20), // +10 dB Dolby subwoofer calibration
+  exclude: 0,
+};
 
 /**
  * Which reference geometry the 7.1.2 bed speakers are placed at.

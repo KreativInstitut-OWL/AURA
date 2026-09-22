@@ -16,6 +16,10 @@ import type {
   TrajectoryPoint,
 } from "./types";
 
+/** LFE carries no direction — it is low-passed and summed into ACN 0 (W). */
+export const LFE_DETAIL =
+  "Omnidirectional — 120 Hz low-pass injected into ACN 0 (W); no directional encoding";
+
 export interface BedGeometry {
   az: number;
   el: number;
@@ -574,7 +578,9 @@ export function analyseAdm(
         status: "bed",
         guessed,
         name,
-        detail: `${common.name} (${common.label}) at ${azDeg}° / ${elDeg}° — ${profileName}`,
+        detail: common.label.toUpperCase().startsWith("LFE")
+          ? LFE_DETAIL
+          : `${common.name} (${common.label}) at ${azDeg}° / ${elDeg}° — ${profileName}`,
         steps,
       });
       continue;
@@ -664,7 +670,9 @@ export function analyseAdm(
         status: "bed",
         guessed,
         name,
-        detail: `${how} — ${((az * 180) / Math.PI).toFixed(1)}° / ${((el * 180) / Math.PI).toFixed(1)}°`,
+        detail: isLFE
+          ? LFE_DETAIL
+          : `${how} — ${((az * 180) / Math.PI).toFixed(1)}° / ${((el * 180) / Math.PI).toFixed(1)}°`,
         steps,
       });
       continue;
