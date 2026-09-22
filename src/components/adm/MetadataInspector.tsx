@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, CircleCheck, CircleX, Copy, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 import type { AnalysisResult, TrackDiagnostic } from "@/engine/types";
@@ -123,9 +123,8 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                 </thead>
                 <tbody>
                   {diagnostics.map((d) => (
-                    <>
+                    <Fragment key={d.trackIndex}>
                       <tr
-                        key={d.trackIndex}
                         onClick={() =>
                           setExpanded((v) => (v === d.trackIndex ? null : d.trackIndex))
                         }
@@ -138,7 +137,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                         <td className="p-2 text-muted-foreground">{d.detail}</td>
                       </tr>
                       {expanded === d.trackIndex && (
-                        <tr key={`${d.trackIndex}-steps`} className="border-t border-border bg-secondary/30">
+                        <tr className="border-t border-border bg-secondary/30">
                           <td colSpan={5} className="p-2">
                             <ol className="space-y-1">
                               {d.steps.map((s, i) => (
@@ -156,7 +155,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
