@@ -512,6 +512,8 @@ function Index() {
               </ul>
             )}
           </Card>
+
+          <MetadataInspector analysis={analysis} />
         </>
       )}
 
