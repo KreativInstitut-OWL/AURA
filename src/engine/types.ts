@@ -88,6 +88,12 @@ export interface AnalysisResult {
 
 export type LfeMode = "inject" | "exclude";
 
+/**
+ * Which reference geometry the 7.1.2 bed speakers are placed at.
+ * "dolby" = Dolby Atmos studio reference, "itu" = ITU-R BS.2051/BS.2094.
+ */
+export type BedProfile = "dolby" | "itu";
+
 export interface RenderConfig {
   order: 3 | 5 | 7;
   lfeMode: LfeMode;
