@@ -152,8 +152,11 @@ function Index() {
           suggestedName: outName,
           types: [{ description: "WAV / RF64", accept: { "audio/wav": [".wav"] } }],
         });
-      } catch {
-        return; // user cancelled
+      } catch (e) {
+        // User cancelled the save dialog -> abort. Any other failure (e.g. no
+        // user-gesture permission) falls back to the chunked blob download.
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        handle = null;
       }
     }
 
