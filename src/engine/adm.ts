@@ -240,7 +240,7 @@ export function analyseAdm(
     const n = Math.min(container.format.channels, BED_ORDER.length);
     for (let i = 0; i < n; i++) {
       const role = BED_ORDER[i]!;
-      const geo = BED_LAYOUT[role]!;
+      const geo = layout[role]!;
       sources.push({
         channelIndex: i,
         kind: "bed",
