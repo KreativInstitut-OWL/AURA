@@ -163,6 +163,11 @@ function Index() {
     workerRef.current = worker;
     setRendering(true);
 
+    worker.onerror = (ev) => {
+      setError(`Render worker failed: ${ev.message || "unknown error"}`);
+      setRendering(false);
+    };
+
     worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
       const msg = ev.data;
       if (msg.type === "progress") {
