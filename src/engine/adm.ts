@@ -76,6 +76,20 @@ export const BED_PROFILE_LABEL: Record<BedProfile, string> = {
 /** Back-compat alias — the Dolby layout is the default. */
 export const BED_LAYOUT = DOLBY_BED_LAYOUT;
 
+/** Channel order used when a file carries no usable metadata (7.1.2). */
+export const FALLBACK_BED_ORDER = [
+  "L",
+  "R",
+  "C",
+  "LFE",
+  "Lss",
+  "Rss",
+  "Lrs",
+  "Rrs",
+  "Ltm",
+  "Rtm",
+];
+
 export const BED_ORDER = [
   "L",
   "R",
