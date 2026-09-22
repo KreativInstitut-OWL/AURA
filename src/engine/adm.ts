@@ -219,8 +219,13 @@ function parseBlock(block: Element) {
  * Parses the axml (ITU-R BS.2076) chunk and combines it with the chna table
  * into a flat list of render sources (one per physical WAV track).
  */
-export function analyseAdm(container: ContainerInfo): AnalysisResult {
+export function analyseAdm(
+  container: ContainerInfo,
+  profile: BedProfile = "dolby",
+): AnalysisResult {
   const warnings: string[] = [];
+  const layout = BED_PROFILES[profile];
+  const profileName = BED_PROFILE_LABEL[profile];
   const sampleRate = container.format.sampleRate;
   const sources: RenderSource[] = [];
   const diagnostics: TrackDiagnostic[] = [];
