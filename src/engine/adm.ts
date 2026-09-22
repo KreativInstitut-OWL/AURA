@@ -1,5 +1,19 @@
+import {
+  COMMON_CHANNELS,
+  commonChannel,
+  commonPack,
+  isCommonId,
+  type CommonChannel,
+} from "./common-definitions";
 import { cartesianToPolar, deg2rad } from "./sh";
-import type { AnalysisResult, ContainerInfo, RenderSource, TrajectoryPoint } from "./types";
+import type {
+  AnalysisResult,
+  ContainerInfo,
+  RenderSource,
+  ResolutionStep,
+  TrackDiagnostic,
+  TrajectoryPoint,
+} from "./types";
 
 /** Dolby Atmos 7.1.2 bed reference geometry (azimuth +, elevation in degrees). */
 export const BED_LAYOUT: Record<string, { az: number; el: number; label: string }> = {
