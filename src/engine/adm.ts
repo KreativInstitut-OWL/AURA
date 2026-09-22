@@ -257,6 +257,7 @@ function parseBlock(block: Element) {
     rtime: block.getAttribute("rtime"),
     duration: block.getAttribute("duration"),
     cartesian: cartesianFlag,
+    positionSource,
     az,
     el,
     dist,
