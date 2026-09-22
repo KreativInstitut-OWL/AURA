@@ -78,13 +78,18 @@ export const BED_LAYOUT = DOLBY_BED_LAYOUT;
 
 export const BED_ORDER = ["L", "R", "C", "LFE", "Lss", "Rss", "Lrs", "Rrs", "Ltm", "Rtm"];
 
-/** BS.2051 speaker labels (and Dolby shorthands) to 7.1.2 roles. */
+/** BS.2051 speaker labels (and Dolby shorthands) to bed/speaker roles. */
 const LABEL_TO_ROLE: Record<string, string> = {
   "M+030": "L",
   "M-030": "R",
   "M+000": "C",
   LFE: "LFE",
   LFE1: "LFE",
+  LFE2: "LFE",
+  "M+060": "Lw",
+  "M-060": "Rw",
+  "M+045": "Lw",
+  "M-045": "Rw",
   "M+090": "Lss",
   "M-090": "Rss",
   "M+100": "Lss",
@@ -93,22 +98,43 @@ const LABEL_TO_ROLE: Record<string, string> = {
   "M-110": "Rrs",
   "M+135": "Lrs",
   "M-135": "Rrs",
+  "U+045": "Ltf",
+  "U-045": "Rtf",
+  "U+030": "Ltf",
+  "U-030": "Rtf",
   "U+090": "Ltm",
   "U-090": "Rtm",
-  "U+045": "Ltm",
-  "U-045": "Rtm",
+  "U+135": "Ltr",
+  "U-135": "Rtr",
+  "U+110": "Ltr",
+  "U-110": "Rtr",
   L: "L",
   R: "R",
   C: "C",
+  LW: "Lw",
+  RW: "Rw",
+  LS: "Lss",
+  RS: "Rss",
   LSS: "Lss",
   RSS: "Rss",
   LRS: "Lrs",
   RRS: "Rrs",
+  LSR: "Lrs",
+  RSR: "Rrs",
+  LTF: "Ltf",
+  RTF: "Rtf",
   LTM: "Ltm",
   RTM: "Rtm",
-  LTF: "Ltm",
-  RTF: "Rtm",
+  LTR: "Ltr",
+  RTR: "Rtr",
+  LTS: "Ltm",
+  RTS: "Rtm",
+  LFS: "Ltf",
+  RFS: "Rtf",
+  LRSS: "Lrs",
+  RRSS: "Rrs",
 };
+
 
 function roleFromLabel(raw: string | null): string | null {
   if (!raw) return null;
