@@ -24,10 +24,20 @@ Both are fixable, and neither means anything is wrong with your file.
 1. Follow the full chain when the shortcut is absent, and fall back to the
    routing table already embedded in the file's track list if the chain is
    incomplete.
-2. Ship the standard bed-channel catalogue so common-definition IDs resolve to
-   real speaker positions (L, R, C, LFE, Lss, Rss, Lrs, Rrs, Ltm/Ltf, Rtm/Rtf and
-   the usual variants), and infer a speaker from the pack layout name as a last
-   resort.
+2. Build in the standard speaker catalogue.
+
+   For the 7.1.2 bed, ADM files don't write out "this channel is the left
+   surround speaker, at 100 degrees to the side, level with your ears". Those
+   definitions are standardised once by the ITU, and the file just cites them by
+   catalogue number — the same way a recipe says "flour, type 550" instead of
+   describing the flour. The Dolby Atmos Renderer writes those citations, so if
+   the app doesn't carry the catalogue, the bed channels stay nameless even
+   after step 1 fixes the lookup path.
+
+   So: embed that catalogue (L, R, C, LFE, Lss, Rss, Lrs, Rrs, the two height
+   channels and the common variants) and match each bed track to its entry. If a
+   track cites an unknown number, fall back to reading the speaker out of the
+   file's layout name so it is still placed rather than dropped.
 3. Accept the vendor-namespaced and prefixed tag spellings these files use, so
    positions and timing parse regardless of how the XML is namespaced.
 4. Report per-track *why* a resolution failed instead of one flat "no channel
