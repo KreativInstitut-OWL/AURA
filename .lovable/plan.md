@@ -35,9 +35,13 @@ Both are fixable, and neither means anything is wrong with your file.
    after step 1 fixes the lookup path.
 
    So: embed that catalogue (L, R, C, LFE, Lss, Rss, Lrs, Rrs, the two height
-   channels and the common variants) and match each bed track to its entry. If a
-   track cites an unknown number, fall back to reading the speaker out of the
-   file's layout name so it is still placed rather than dropped.
+   channels and the common variants) and match each bed track to its entry.
+
+   An unknown catalogue number is always reported, never silently guessed: the
+   track is listed by name and number in a prominent warning and marked
+   unresolved in the inspector. A fallback guess from the layout name may be
+   offered so the render can still proceed, but only alongside that warning and
+   clearly labelled as a guess.
 3. Accept the vendor-namespaced and prefixed tag spellings these files use, so
    positions and timing parse regardless of how the XML is namespaced.
 4. Report per-track *why* a resolution failed instead of one flat "no channel
