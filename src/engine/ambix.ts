@@ -21,7 +21,7 @@ export interface AmbixHeaderOptions {
  * Builds a complete WAVE_FORMAT_EXTENSIBLE header. RF64 + ds64 is emitted
  * automatically once the payload crosses the 4 GB RIFF limit.
  */
-export function buildAmbixHeader(opts: AmbixHeaderOptions): Uint8Array {
+export function buildAmbixHeader(opts: AmbixHeaderOptions): Uint8Array<ArrayBuffer> {
   const bits = opts.bitsPerSample ?? 24;
   const bytesPerSample = bits / 8;
   const blockAlign = opts.channels * bytesPerSample;
