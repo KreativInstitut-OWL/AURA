@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { MetadataInspector } from "@/components/adm/MetadataInspector";
 import { Meters } from "@/components/adm/Meters";
 import { SpatialViewer } from "@/components/adm/SpatialViewer";
 import { Button } from "@/components/ui/button";
