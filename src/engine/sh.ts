@@ -114,6 +114,30 @@ export function cartesianToPolar(x: number, y: number, z: number) {
   return { azimuth, elevation, distance: r };
 }
 
+/**
+ * Dolby reference room proportion (length / width). Dolby Atmos Renderer writes
+ * object positions normalized to the room box, so a source authored at 45° on
+ * the side wall is stored as X = ±1, Y = 1 / 1.4694591 = 0.6805225.
+ */
+export const DOLBY_ROOM_ASPECT = 1 / 0.6805225015;
+
+/**
+ * Convert Dolby room-box cartesian coordinates to listening angles.
+ *
+ * Azimuth uses the room proportion so that side-wall positions keep the angle
+ * they were authored with. Elevation is measured against the room perimeter
+ * (not the euclidean radius), so the whole ceiling edge sits at 45°.
+ */
+export function roomCartesianToPolar(x: number, y: number, z: number) {
+  const yr = y * DOLBY_ROOM_ASPECT;
+  const azimuth = Math.atan2(-x, yr);
+  const horizontal = Math.max(Math.abs(x), Math.abs(yr));
+  const elevation = horizontal > 1e-9 ? Math.atan2(z, horizontal) : z >= 0 ? Math.PI / 2 : -Math.PI / 2;
+  const distance = Math.min(1, Math.sqrt(x * x + yr * yr + z * z) / Math.SQRT2) || 1;
+  return { azimuth, elevation, distance };
+}
+
+
 export const deg2rad = (d: number) => (d * Math.PI) / 180;
 export const rad2deg = (r: number) => (r * 180) / Math.PI;
 

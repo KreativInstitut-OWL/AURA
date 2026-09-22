@@ -5,7 +5,7 @@ import {
   isCommonId,
   type CommonChannel,
 } from "./common-definitions";
-import { cartesianToPolar, deg2rad } from "./sh";
+import { deg2rad, roomCartesianToPolar } from "./sh";
 import type {
   AnalysisResult,
   BedProfile,
@@ -22,32 +22,45 @@ export interface BedGeometry {
   label: string;
 }
 
-/** Dolby Atmos 7.1.2 studio reference geometry (azimuth +, elevation in degrees). */
+/** Dolby Atmos studio reference geometry (azimuth +, elevation in degrees). */
 export const DOLBY_BED_LAYOUT: Record<string, BedGeometry> = {
   L: { az: 30, el: 0, label: "L" },
   R: { az: -30, el: 0, label: "R" },
   C: { az: 0, el: 0, label: "C" },
   LFE: { az: 0, el: -90, label: "LFE" },
+  Lw: { az: 45, el: 0, label: "Lw" },
+  Rw: { az: -45, el: 0, label: "Rw" },
   Lss: { az: 100, el: 0, label: "Lss" },
   Rss: { az: -100, el: 0, label: "Rss" },
   Lrs: { az: 135, el: 0, label: "Lrs" },
   Rrs: { az: -135, el: 0, label: "Rrs" },
+  Ltf: { az: 45, el: 45, label: "Ltf" },
+  Rtf: { az: -45, el: 45, label: "Rtf" },
   Ltm: { az: 90, el: 45, label: "Ltm" },
   Rtm: { az: -90, el: 45, label: "Rtm" },
+  Ltr: { az: 135, el: 45, label: "Ltr" },
+  Rtr: { az: -135, el: 45, label: "Rtr" },
 };
 
-/** ITU-R BS.2051 / BS.2094 nominal geometry for the same 7.1.2 roles. */
+/** ITU-R BS.2051 / BS.2094 nominal geometry for the same roles. */
 export const ITU_BED_LAYOUT: Record<string, BedGeometry> = {
   L: { az: 30, el: 0, label: "M+030" },
   R: { az: -30, el: 0, label: "M-030" },
   C: { az: 0, el: 0, label: "M+000" },
   LFE: { az: 0, el: -30, label: "LFE" },
+  Lw: { az: 60, el: 0, label: "M+060" },
+  Rw: { az: -60, el: 0, label: "M-060" },
   Lss: { az: 90, el: 0, label: "M+090" },
   Rss: { az: -90, el: 0, label: "M-090" },
   Lrs: { az: 135, el: 0, label: "M+135" },
   Rrs: { az: -135, el: 0, label: "M-135" },
+  Ltf: { az: 45, el: 30, label: "U+045" },
+  Rtf: { az: -45, el: 30, label: "U-045" },
   Ltm: { az: 90, el: 30, label: "U+090" },
   Rtm: { az: -90, el: 30, label: "U-090" },
+  Ltr: { az: 135, el: 30, label: "U+135" },
+  Rtr: { az: -135, el: 30, label: "U-135" },
+
 };
 
 export const BED_PROFILES: Record<BedProfile, Record<string, BedGeometry>> = {
@@ -63,15 +76,51 @@ export const BED_PROFILE_LABEL: Record<BedProfile, string> = {
 /** Back-compat alias — the Dolby layout is the default. */
 export const BED_LAYOUT = DOLBY_BED_LAYOUT;
 
-export const BED_ORDER = ["L", "R", "C", "LFE", "Lss", "Rss", "Lrs", "Rrs", "Ltm", "Rtm"];
+/** Channel order used when a file carries no usable metadata (7.1.2). */
+export const FALLBACK_BED_ORDER = [
+  "L",
+  "R",
+  "C",
+  "LFE",
+  "Lss",
+  "Rss",
+  "Lrs",
+  "Rrs",
+  "Ltm",
+  "Rtm",
+];
 
-/** BS.2051 speaker labels (and Dolby shorthands) to 7.1.2 roles. */
+export const BED_ORDER = [
+  "L",
+  "R",
+  "C",
+  "LFE",
+  "Lw",
+  "Rw",
+  "Lss",
+  "Rss",
+  "Lrs",
+  "Rrs",
+  "Ltf",
+  "Rtf",
+  "Ltm",
+  "Rtm",
+  "Ltr",
+  "Rtr",
+];
+
+/** BS.2051 speaker labels (and Dolby shorthands) to bed/speaker roles. */
 const LABEL_TO_ROLE: Record<string, string> = {
   "M+030": "L",
   "M-030": "R",
   "M+000": "C",
   LFE: "LFE",
   LFE1: "LFE",
+  LFE2: "LFE",
+  "M+060": "Lw",
+  "M-060": "Rw",
+  "M+045": "Lw",
+  "M-045": "Rw",
   "M+090": "Lss",
   "M-090": "Rss",
   "M+100": "Lss",
@@ -80,22 +129,43 @@ const LABEL_TO_ROLE: Record<string, string> = {
   "M-110": "Rrs",
   "M+135": "Lrs",
   "M-135": "Rrs",
+  "U+045": "Ltf",
+  "U-045": "Rtf",
+  "U+030": "Ltf",
+  "U-030": "Rtf",
   "U+090": "Ltm",
   "U-090": "Rtm",
-  "U+045": "Ltm",
-  "U-045": "Rtm",
+  "U+135": "Ltr",
+  "U-135": "Rtr",
+  "U+110": "Ltr",
+  "U-110": "Rtr",
   L: "L",
   R: "R",
   C: "C",
+  LW: "Lw",
+  RW: "Rw",
+  LS: "Lss",
+  RS: "Rss",
   LSS: "Lss",
   RSS: "Rss",
   LRS: "Lrs",
   RRS: "Rrs",
+  LSR: "Lrs",
+  RSR: "Rrs",
+  LTF: "Ltf",
+  RTF: "Rtf",
   LTM: "Ltm",
   RTM: "Rtm",
-  LTF: "Ltm",
-  RTF: "Rtm",
+  LTR: "Ltr",
+  RTR: "Rtr",
+  LTS: "Ltm",
+  RTS: "Rtm",
+  LFS: "Ltf",
+  RFS: "Rtf",
+  LRSS: "Lrs",
+  RRSS: "Rrs",
 };
+
 
 function roleFromLabel(raw: string | null): string | null {
   if (!raw) return null;
@@ -151,6 +221,7 @@ interface ChannelFormatModel {
     rtime: string | null;
     duration: string | null;
     cartesian: boolean;
+    positionSource: "polar" | "room" | "none";
     az: number;
     el: number;
     dist: number;
@@ -175,19 +246,31 @@ function parseBlock(block: Element) {
   }
 
   const hasCart = "X" in byCoord || "Y" in byCoord || "Z" in byCoord;
-  if (cartesianFlag || (hasCart && !("azimuth" in byCoord))) {
-    const polar = cartesianToPolar(byCoord['X'] ?? 0, byCoord['Y'] ?? 0, byCoord['Z'] ?? 0);
-    az = polar.azimuth;
-    el = polar.elevation;
-    dist = polar.distance;
-  } else {
+  const hasPolar =
+    "azimuth" in byCoord || !!child(block, "azimuth") || "elevation" in byCoord;
+  let positionSource: "polar" | "room" | "none" = "none";
+  if (hasPolar) {
+    // Explicit polar angles always win, even when cartesian="1" is also set.
     const azDeg = byCoord['azimuth'] ?? Number(text(child(block, "azimuth")) ?? "0");
     const elDeg = byCoord['elevation'] ?? Number(text(child(block, "elevation")) ?? "0");
     const d = byCoord['distance'] ?? Number(text(child(block, "distance")) ?? "1");
     az = deg2rad(Number.isFinite(azDeg) ? azDeg : 0);
     el = deg2rad(Number.isFinite(elDeg) ? elDeg : 0);
     dist = Number.isFinite(d) && d > 0 ? d : 1;
+    positionSource = "polar";
+  } else if (hasCart) {
+    // Dolby room-box coordinates: aspect-corrected azimuth, perimeter elevation.
+    const polar = roomCartesianToPolar(
+      byCoord['X'] ?? 0,
+      byCoord['Y'] ?? 0,
+      byCoord['Z'] ?? 0,
+    );
+    az = polar.azimuth;
+    el = polar.elevation;
+    dist = polar.distance;
+    positionSource = "room";
   }
+
 
   const gainEl = child(block, "gain");
   let gain = 1;
@@ -206,6 +289,7 @@ function parseBlock(block: Element) {
     rtime: block.getAttribute("rtime"),
     duration: block.getAttribute("duration"),
     cartesian: cartesianFlag,
+    positionSource,
     az,
     el,
     dist,
@@ -237,9 +321,9 @@ export function analyseAdm(
     warnings.push(
       "No usable axml/chna metadata — falling back to a channel-order 7.1.2 bed mapping.",
     );
-    const n = Math.min(container.format.channels, BED_ORDER.length);
+    const n = Math.min(container.format.channels, FALLBACK_BED_ORDER.length);
     for (let i = 0; i < n; i++) {
-      const role = BED_ORDER[i]!;
+      const role = FALLBACK_BED_ORDER[i]!;
       const geo = layout[role]!;
       sources.push({
         channelIndex: i,
@@ -516,20 +600,21 @@ export function analyseAdm(
       const labelCommon = (Object.values(COMMON_CHANNELS) as CommonChannel[]).find(
         (c) => c.label === (block?.speakerLabel ?? "").split(":").pop(),
       );
-      // A recognised 7.1.2 role is always placed at the active profile's
-      // reference angle; anything else keeps the position written in the file.
+      // Speaker channels are identified by their role/speakerLabel; the room-box
+      // cartesian values a renderer writes for them are drawing coordinates, not
+      // listening angles, so the reference geometry wins for known roles.
       const bedRole = role ?? fromLabel ?? roleFromLabel(labelCommon?.label ?? null);
       const geo = bedRole ? layout[bedRole] : undefined;
       let az: number | null = null;
       let el: number | null = null;
       let how = "";
-      // Priority 1: explicit non-zero coordinates written in the file.
-      if (block && (block.az !== 0 || block.el !== 0)) {
+      // Priority 1: explicit polar angles written in the file.
+      if (block && block.positionSource === "polar" && (block.az !== 0 || block.el !== 0)) {
         az = block.az;
         el = block.el;
-        how = "explicit position in file";
+        how = "explicit polar position in file";
       } else if (geo) {
-        // Priority 2: recognised 7.1.2 role at the active profile's reference angle.
+        // Priority 2: recognised speaker role at the active profile's reference angle.
         az = deg2rad(geo.az);
         el = deg2rad(geo.el);
         how = `${bedRole} at ${profileName}`;
@@ -537,11 +622,16 @@ export function analyseAdm(
         az = deg2rad(labelCommon.azimuth);
         el = deg2rad(labelCommon.elevation);
         how = `speaker label ${labelCommon.label}`;
+      } else if (block && (block.az !== 0 || block.el !== 0)) {
+        az = block.az;
+        el = block.el;
+        how = block.positionSource === "room" ? "room coordinates in file" : "position in file";
       } else if (block) {
         az = block.az;
         el = block.el;
         how = "position in file";
       }
+
 
       if (az == null || el == null) {
         warnings.push(
