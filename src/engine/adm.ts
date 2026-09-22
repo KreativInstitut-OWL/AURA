@@ -22,32 +22,45 @@ export interface BedGeometry {
   label: string;
 }
 
-/** Dolby Atmos 7.1.2 studio reference geometry (azimuth +, elevation in degrees). */
+/** Dolby Atmos studio reference geometry (azimuth +, elevation in degrees). */
 export const DOLBY_BED_LAYOUT: Record<string, BedGeometry> = {
   L: { az: 30, el: 0, label: "L" },
   R: { az: -30, el: 0, label: "R" },
   C: { az: 0, el: 0, label: "C" },
   LFE: { az: 0, el: -90, label: "LFE" },
+  Lw: { az: 45, el: 0, label: "Lw" },
+  Rw: { az: -45, el: 0, label: "Rw" },
   Lss: { az: 100, el: 0, label: "Lss" },
   Rss: { az: -100, el: 0, label: "Rss" },
   Lrs: { az: 135, el: 0, label: "Lrs" },
   Rrs: { az: -135, el: 0, label: "Rrs" },
+  Ltf: { az: 45, el: 45, label: "Ltf" },
+  Rtf: { az: -45, el: 45, label: "Rtf" },
   Ltm: { az: 90, el: 45, label: "Ltm" },
   Rtm: { az: -90, el: 45, label: "Rtm" },
+  Ltr: { az: 135, el: 45, label: "Ltr" },
+  Rtr: { az: -135, el: 45, label: "Rtr" },
 };
 
-/** ITU-R BS.2051 / BS.2094 nominal geometry for the same 7.1.2 roles. */
+/** ITU-R BS.2051 / BS.2094 nominal geometry for the same roles. */
 export const ITU_BED_LAYOUT: Record<string, BedGeometry> = {
   L: { az: 30, el: 0, label: "M+030" },
   R: { az: -30, el: 0, label: "M-030" },
   C: { az: 0, el: 0, label: "M+000" },
   LFE: { az: 0, el: -30, label: "LFE" },
+  Lw: { az: 60, el: 0, label: "M+060" },
+  Rw: { az: -60, el: 0, label: "M-060" },
   Lss: { az: 90, el: 0, label: "M+090" },
   Rss: { az: -90, el: 0, label: "M-090" },
   Lrs: { az: 135, el: 0, label: "M+135" },
   Rrs: { az: -135, el: 0, label: "M-135" },
+  Ltf: { az: 45, el: 30, label: "U+045" },
+  Rtf: { az: -45, el: 30, label: "U-045" },
   Ltm: { az: 90, el: 30, label: "U+090" },
   Rtm: { az: -90, el: 30, label: "U-090" },
+  Ltr: { az: 135, el: 30, label: "U+135" },
+  Rtr: { az: -135, el: 30, label: "U-135" },
+
 };
 
 export const BED_PROFILES: Record<BedProfile, Record<string, BedGeometry>> = {
