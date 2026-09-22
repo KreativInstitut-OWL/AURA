@@ -512,23 +512,25 @@ export function analyseAdm(
     if (isDirect) {
       const block = cf.blocks[0];
       const role = cf.role;
-      const geo = role ? BED_LAYOUT[role] : undefined;
-      // Prefer an explicit position in the file; fall back to the label geometry.
       const fromLabel = roleFromLabel(block?.speakerLabel ?? null);
       const labelCommon = (Object.values(COMMON_CHANNELS) as CommonChannel[]).find(
         (c) => c.label === (block?.speakerLabel ?? "").split(":").pop(),
       );
+      // A recognised 7.1.2 role is always placed at the active profile's
+      // reference angle; anything else keeps the position written in the file.
+      const bedRole = role ?? fromLabel ?? roleFromLabel(labelCommon?.label ?? null);
+      const geo = bedRole ? layout[bedRole] : undefined;
       let az: number | null = null;
       let el: number | null = null;
       let how = "";
-      if (block && (block.az !== 0 || block.el !== 0)) {
+      if (geo) {
+        az = deg2rad(geo.az);
+        el = deg2rad(geo.el);
+        how = `${bedRole} at ${profileName}`;
+      } else if (block && (block.az !== 0 || block.el !== 0)) {
         az = block.az;
         el = block.el;
         how = "explicit position in file";
-      } else if (geo) {
-        az = deg2rad(geo.az);
-        el = deg2rad(geo.el);
-        how = `speaker label ${role}`;
       } else if (labelCommon) {
         az = deg2rad(labelCommon.azimuth);
         el = deg2rad(labelCommon.elevation);
