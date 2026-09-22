@@ -190,6 +190,7 @@ interface ChannelFormatModel {
     rtime: string | null;
     duration: string | null;
     cartesian: boolean;
+    positionSource: "polar" | "room" | "none";
     az: number;
     el: number;
     dist: number;
