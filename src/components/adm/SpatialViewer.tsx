@@ -106,16 +106,31 @@ export function SpatialViewer({
       ctx.textAlign = "center";
       ctx.fillText("FRONT", front.sx, front.sy);
 
-      // Bed anchors
-      for (const s of srcs.filter((x) => x.kind === "bed")) {
-        const p = project(s.azimuth, s.isLFE ? -0.35 : s.elevation, s.isLFE ? 0.45 : 1);
-        ctx.fillStyle = s.isLFE ? cMuted : cPrimary;
+      // Bed anchors (directional speakers only)
+      for (const s of srcs.filter((x) => x.kind === "bed" && !x.isLFE)) {
+        const p = project(s.azimuth, s.elevation, 1);
+        ctx.fillStyle = cPrimary;
         ctx.globalAlpha = p.depth > 0 ? 1 : 0.5;
         ctx.beginPath();
         ctx.rect(p.sx - 4, p.sy - 4, 8, 8);
         ctx.fill();
         ctx.fillStyle = cMuted;
         ctx.fillText(s.name, p.sx, p.sy - 9);
+        ctx.globalAlpha = 1;
+      }
+
+      // LFE is omnidirectional: shown at the origin, not as a loudspeaker point
+      if (srcs.some((x) => x.isLFE)) {
+        const o = project(0, 0, 0);
+        ctx.strokeStyle = cMuted;
+        ctx.globalAlpha = 0.7;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(o.sx, o.sy, 9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = cMuted;
+        ctx.fillText("LFE · omni → W", o.sx, o.sy + 22);
         ctx.globalAlpha = 1;
       }
 
