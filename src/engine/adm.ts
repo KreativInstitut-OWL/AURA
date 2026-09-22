@@ -523,14 +523,16 @@ export function analyseAdm(
       let az: number | null = null;
       let el: number | null = null;
       let how = "";
-      if (geo) {
-        az = deg2rad(geo.az);
-        el = deg2rad(geo.el);
-        how = `${bedRole} at ${profileName}`;
-      } else if (block && (block.az !== 0 || block.el !== 0)) {
+      // Priority 1: explicit non-zero coordinates written in the file.
+      if (block && (block.az !== 0 || block.el !== 0)) {
         az = block.az;
         el = block.el;
         how = "explicit position in file";
+      } else if (geo) {
+        // Priority 2: recognised 7.1.2 role at the active profile's reference angle.
+        az = deg2rad(geo.az);
+        el = deg2rad(geo.el);
+        how = `${bedRole} at ${profileName}`;
       } else if (labelCommon) {
         az = deg2rad(labelCommon.azimuth);
         el = deg2rad(labelCommon.elevation);
