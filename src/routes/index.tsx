@@ -353,7 +353,7 @@ function Index() {
                           : "border-border hover:bg-secondary"
                       }`}
                     >
-                      <span className="block font-semibold">{o}rd</span>
+                      <span className="block font-semibold">{o === 3 ? "3rd" : `${o}th`}</span>
                       <span className="block font-mono text-[11px] text-muted-foreground">
                         {channelCount(o)} ch
                       </span>
