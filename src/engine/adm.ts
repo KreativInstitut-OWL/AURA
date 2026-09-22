@@ -497,7 +497,7 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
         status: "bed",
         guessed,
         name,
-        detail: `${how} — ${(az * 180) / Math.PI).toFixed(1)}° / ${((el * 180) / Math.PI).toFixed(1)}°`,
+        detail: `${how} — ${((az * 180) / Math.PI).toFixed(1)}° / ${((el * 180) / Math.PI).toFixed(1)}°`,
         steps,
       });
       continue;
