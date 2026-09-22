@@ -214,19 +214,31 @@ function parseBlock(block: Element) {
   }
 
   const hasCart = "X" in byCoord || "Y" in byCoord || "Z" in byCoord;
-  if (cartesianFlag || (hasCart && !("azimuth" in byCoord))) {
-    const polar = cartesianToPolar(byCoord['X'] ?? 0, byCoord['Y'] ?? 0, byCoord['Z'] ?? 0);
-    az = polar.azimuth;
-    el = polar.elevation;
-    dist = polar.distance;
-  } else {
+  const hasPolar =
+    "azimuth" in byCoord || !!child(block, "azimuth") || "elevation" in byCoord;
+  let positionSource: "polar" | "room" | "none" = "none";
+  if (hasPolar) {
+    // Explicit polar angles always win, even when cartesian="1" is also set.
     const azDeg = byCoord['azimuth'] ?? Number(text(child(block, "azimuth")) ?? "0");
     const elDeg = byCoord['elevation'] ?? Number(text(child(block, "elevation")) ?? "0");
     const d = byCoord['distance'] ?? Number(text(child(block, "distance")) ?? "1");
     az = deg2rad(Number.isFinite(azDeg) ? azDeg : 0);
     el = deg2rad(Number.isFinite(elDeg) ? elDeg : 0);
     dist = Number.isFinite(d) && d > 0 ? d : 1;
+    positionSource = "polar";
+  } else if (hasCart) {
+    // Dolby room-box coordinates: aspect-corrected azimuth, perimeter elevation.
+    const polar = roomCartesianToPolar(
+      byCoord['X'] ?? 0,
+      byCoord['Y'] ?? 0,
+      byCoord['Z'] ?? 0,
+    );
+    az = polar.azimuth;
+    el = polar.elevation;
+    dist = polar.distance;
+    positionSource = "room";
   }
+
 
   const gainEl = child(block, "gain");
   let gain = 1;
