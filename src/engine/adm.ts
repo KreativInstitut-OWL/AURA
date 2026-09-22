@@ -456,7 +456,7 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
       const geo = role ? BED_LAYOUT[role] : undefined;
       // Prefer an explicit position in the file; fall back to the label geometry.
       const fromLabel = roleFromLabel(block?.speakerLabel ?? null);
-      const labelCommon = Object.values(COMMON_CHANNELS).find(
+      const labelCommon = (Object.values(COMMON_CHANNELS) as CommonChannel[]).find(
         (c) => c.label === (block?.speakerLabel ?? "").split(":").pop(),
       );
       let az: number | null = null;
