@@ -175,6 +175,7 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
   const warnings: string[] = [];
   const sampleRate = container.format.sampleRate;
   const sources: RenderSource[] = [];
+  const diagnostics: TrackDiagnostic[] = [];
   let programmeName: string | null = null;
 
   if (container.hasDbmd) warnings.push("Proprietary 'dbmd' chunk found — ignored by design.");
@@ -198,8 +199,17 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
         gain: 1,
         points: [],
       });
+      diagnostics.push({
+        trackIndex: i + 1,
+        uid: `CH_${i + 1}`,
+        status: "bed",
+        guessed: true,
+        name: role,
+        detail: "No ADM metadata — assumed from channel order.",
+        steps: [{ label: "metadata", value: "none", ok: false }],
+      });
     }
-    return { container, sources, warnings, programmeName };
+    return { container, sources, warnings, programmeName, diagnostics };
   }
 
   const doc = new DOMParser().parseFromString(container.axml, "application/xml");
@@ -230,12 +240,50 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
     });
   }
 
-  // audioTrackUID -> channelFormat
-  const uidToChannelFormat = new Map<string, string>();
+  // audioTrackFormat -> audioStreamFormat -> audioChannelFormat reference chain
+  const trackFormatToStream = new Map<string, string>();
+  const streamToChannel = new Map<string, string>();
+  for (const tf of allByLocalName(doc, "audioTrackFormat")) {
+    const id = tf.getAttribute("audioTrackFormatID") ?? "";
+    const ref = text(child(tf, "audioStreamFormatIDRef"));
+    if (id && ref) trackFormatToStream.set(id, ref);
+  }
+  for (const sf of allByLocalName(doc, "audioStreamFormat")) {
+    const id = sf.getAttribute("audioStreamFormatID") ?? "";
+    const cfRef = text(child(sf, "audioChannelFormatIDRef"));
+    if (id && cfRef) streamToChannel.set(id, cfRef);
+    // audioStreamFormat can also point back at its track formats
+    for (const tfRefEl of children(sf, "audioTrackFormatIDRef")) {
+      const tfRef = text(tfRefEl);
+      if (tfRef && id && !trackFormatToStream.has(tfRef)) trackFormatToStream.set(tfRef, id);
+    }
+  }
+
+  // audioPackFormat -> ordered channel formats (file-local packs)
+  const packToChannels = new Map<string, string[]>();
+  for (const pf of allByLocalName(doc, "audioPackFormat")) {
+    const id = pf.getAttribute("audioPackFormatID") ?? "";
+    const refs = children(pf, "audioChannelFormatIDRef")
+      .map((r) => text(r))
+      .filter((r): r is string => !!r);
+    if (id && refs.length) packToChannels.set(id, refs);
+  }
+
+  // audioTrackUID -> its own references
+  interface UidRefs {
+    channelFormat: string | null;
+    trackFormat: string | null;
+    pack: string | null;
+  }
+  const uidRefs = new Map<string, UidRefs>();
   for (const tu of allByLocalName(doc, "audioTrackUID")) {
     const uid = tu.getAttribute("UID") ?? "";
-    const cfRef = text(child(tu, "audioChannelFormatIDRef"));
-    if (uid && cfRef) uidToChannelFormat.set(uid, cfRef);
+    if (!uid) continue;
+    uidRefs.set(uid, {
+      channelFormat: text(child(tu, "audioChannelFormatIDRef")),
+      trackFormat: text(child(tu, "audioTrackFormatIDRef")),
+      pack: text(child(tu, "audioPackFormatIDRef")),
+    });
   }
 
   // audioObject names, resolved through their track UID references
@@ -248,36 +296,209 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
     }
   }
 
+  // Position of each track inside its pack, used only for the labelled fallback.
+  const packSeen = new Map<string, number>();
+  const packPosition = new Map<string, number>();
+  for (const entry of container.chna) {
+    const packId = (uidRefs.get(entry.uid)?.pack ?? entry.packRef ?? "").trim();
+    if (!packId) continue;
+    const n = packSeen.get(packId) ?? 0;
+    packPosition.set(entry.uid, n);
+    packSeen.set(packId, n + 1);
+  }
+
+  let unresolvedCount = 0;
+
   for (const entry of container.chna) {
     const channelIndex = entry.trackIndex - 1;
     if (channelIndex < 0 || channelIndex >= container.format.channels) continue;
-    const cfId = uidToChannelFormat.get(entry.uid);
+
+    const refs = uidRefs.get(entry.uid);
+    const steps: ResolutionStep[] = [
+      { label: "audioTrackUID", value: entry.uid, ok: !!refs },
+    ];
+
+    // 1. direct shortcut (BS.2076-2)
+    let cfId = refs?.channelFormat?.trim() || null;
+    if (cfId) steps.push({ label: "direct channelFormatIDRef", value: cfId, ok: true });
+
+    // 2. classic chain: trackFormat -> streamFormat -> channelFormat
+    if (!cfId) {
+      const tfId = (refs?.trackFormat ?? entry.trackRef ?? "").trim() || null;
+      steps.push({
+        label: "audioTrackFormatIDRef",
+        value: tfId ?? "missing",
+        ok: !!tfId,
+      });
+      if (tfId) {
+        const sfId = trackFormatToStream.get(tfId) ?? null;
+        steps.push({ label: "audioStreamFormat", value: sfId ?? "not found", ok: !!sfId });
+        if (sfId) {
+          cfId = streamToChannel.get(sfId) ?? null;
+          steps.push({
+            label: "audioChannelFormatIDRef",
+            value: cfId ?? "not found",
+            ok: !!cfId,
+          });
+        }
+      }
+    }
+
+    const packId = (refs?.pack ?? entry.packRef ?? "").trim() || null;
+    let guessed = false;
+
+    // 3. labelled fallback: take the channel at this track's position in a known pack
+    if (!cfId && packId) {
+      const list = packToChannels.get(packId) ?? commonPack(packId)?.channels;
+      const pos = packPosition.get(entry.uid);
+      const fallback = list && pos != null ? list[pos] : undefined;
+      if (fallback) {
+        cfId = fallback;
+        guessed = true;
+        steps.push({
+          label: "pack-order fallback",
+          value: `${packId}[${pos}] → ${fallback}`,
+          ok: true,
+        });
+      } else {
+        steps.push({ label: "audioPackFormatIDRef", value: packId, ok: false });
+      }
+    }
+
     const cf = cfId ? channelFormats.get(cfId) : undefined;
-    const displayName = uidToObjectName.get(entry.uid) ?? cf?.name ?? `Track ${entry.trackIndex}`;
+    const common = cfId && !cf ? commonChannel(cfId) : undefined;
+    const displayName =
+      uidToObjectName.get(entry.uid) ?? cf?.name ?? common?.name ?? `Track ${entry.trackIndex}`;
+
+    if (cfId && !cf && !common) {
+      steps.push({ label: "definition", value: `${cfId} unknown`, ok: false });
+    } else if (common) {
+      steps.push({
+        label: "common definition",
+        value: `${common.id} ${common.name} (${common.label})`,
+        ok: true,
+      });
+    }
+
+    const fail = (detail: string) => {
+      unresolvedCount++;
+      diagnostics.push({
+        trackIndex: entry.trackIndex,
+        uid: entry.uid,
+        status: "unresolved",
+        guessed: false,
+        name: displayName,
+        detail,
+        steps,
+      });
+    };
+
+    if (!cfId) {
+      fail("No channel definition could be reached from this track.");
+      continue;
+    }
+
+    // --- Common-definition bed channel -------------------------------------
+    if (common) {
+      sources.push({
+        channelIndex,
+        kind: "bed",
+        name: common.label || common.name,
+        uid: entry.uid,
+        isLFE: common.label.toUpperCase().startsWith("LFE"),
+        azimuth: deg2rad(common.azimuth),
+        elevation: deg2rad(common.elevation),
+        gain: 1,
+        points: [],
+      });
+      diagnostics.push({
+        trackIndex: entry.trackIndex,
+        uid: entry.uid,
+        status: "bed",
+        guessed,
+        name: common.label || common.name,
+        detail: `${common.name} at ${common.azimuth}° / ${common.elevation}°`,
+        steps,
+      });
+      continue;
+    }
 
     if (!cf) {
-      warnings.push(`Track ${entry.trackIndex} (${entry.uid}) has no channel format — skipped.`);
+      if (isCommonId(cfId)) {
+        warnings.push(
+          `Track ${entry.trackIndex} (${entry.uid}) cites unknown catalogue number ${cfId} — not in the ITU common definitions. Skipped.`,
+        );
+        fail(`Unknown catalogue number ${cfId}.`);
+      } else {
+        fail(`Channel definition ${cfId} is not present in the file.`);
+      }
       continue;
     }
 
     const isDirect = cf.type === "0001" || cf.role !== null;
     if (isDirect) {
+      const block = cf.blocks[0];
       const role = cf.role;
-      if (!role) {
-        warnings.push(`Bed track ${entry.trackIndex} has an unknown speaker label — skipped.`);
+      const geo = role ? BED_LAYOUT[role] : undefined;
+      // Prefer an explicit position in the file; fall back to the label geometry.
+      const fromLabel = roleFromLabel(block?.speakerLabel ?? null);
+      const labelCommon = Object.values(COMMON_CHANNELS).find(
+        (c) => c.label === (block?.speakerLabel ?? "").split(":").pop(),
+      );
+      let az: number | null = null;
+      let el: number | null = null;
+      let how = "";
+      if (block && (block.az !== 0 || block.el !== 0)) {
+        az = block.az;
+        el = block.el;
+        how = "explicit position in file";
+      } else if (geo) {
+        az = deg2rad(geo.az);
+        el = deg2rad(geo.el);
+        how = `speaker label ${role}`;
+      } else if (labelCommon) {
+        az = deg2rad(labelCommon.azimuth);
+        el = deg2rad(labelCommon.elevation);
+        how = `speaker label ${labelCommon.label}`;
+      } else if (block) {
+        az = block.az;
+        el = block.el;
+        how = "position in file";
+      }
+
+      if (az == null || el == null) {
+        warnings.push(
+          `Track ${entry.trackIndex} (${entry.uid}) is a bed channel with no usable speaker position — skipped.`,
+        );
+        fail("Bed channel without a usable speaker position.");
         continue;
       }
-      const geo = BED_LAYOUT[role]!;
+
+      const isLFE =
+        role === "LFE" ||
+        (block?.speakerLabel ?? "").toUpperCase().includes("LFE") ||
+        cf.name.toUpperCase().includes("LFE");
+
+      const name = role ?? labelCommon?.label ?? fromLabel ?? cf.name;
       sources.push({
         channelIndex,
         kind: "bed",
-        name: geo.label,
+        name,
         uid: entry.uid,
-        isLFE: role === "LFE",
-        azimuth: deg2rad(geo.az),
-        elevation: deg2rad(geo.el),
-        gain: cf.blocks[0]?.gain ?? 1,
+        isLFE,
+        azimuth: az,
+        elevation: el,
+        gain: block?.gain ?? 1,
         points: [],
+      });
+      diagnostics.push({
+        trackIndex: entry.trackIndex,
+        uid: entry.uid,
+        status: "bed",
+        guessed,
+        name,
+        detail: `${how} — ${(az * 180) / Math.PI).toFixed(1)}° / ${((el * 180) / Math.PI).toFixed(1)}°`,
+        steps,
       });
       continue;
     }
@@ -320,6 +541,27 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
       gain: 1,
       points,
     });
+    diagnostics.push({
+      trackIndex: entry.trackIndex,
+      uid: entry.uid,
+      status: "object",
+      guessed,
+      name: displayName,
+      detail: `${points.length} keyframe${points.length === 1 ? "" : "s"}`,
+      steps,
+    });
+  }
+
+  const guessedTracks = diagnostics.filter((d) => d.guessed);
+  if (guessedTracks.length > 0) {
+    warnings.push(
+      `${guessedTracks.length} track${guessedTracks.length === 1 ? "" : "s"} had no direct channel definition — positions were inferred from the pack layout order (labelled as a guess in the inspector).`,
+    );
+  }
+  if (unresolvedCount > 0) {
+    warnings.push(
+      `${unresolvedCount} track${unresolvedCount === 1 ? " is" : "s are"} unresolved and will not be rendered — open the metadata inspector for the per-track trace.`,
+    );
   }
 
   const beds = sources.filter((s) => s.kind === "bed");
@@ -327,7 +569,8 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
     warnings.push(`Bed has ${beds.length} channels; Dolby Atmos beds are capped at 7.1.2 (10 ch).`);
   }
   sources.sort((a, b) => a.channelIndex - b.channelIndex);
-  return { container, sources, warnings, programmeName };
+  diagnostics.sort((a, b) => a.trackIndex - b.trackIndex);
+  return { container, sources, warnings, programmeName, diagnostics };
 }
 
 /** Position of an object at a given sample, with keyframe interpolation. */
