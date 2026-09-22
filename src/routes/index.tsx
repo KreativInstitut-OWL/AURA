@@ -21,11 +21,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { analyseAdm } from "@/engine/adm";
+import { analyseAdm, BED_ORDER, BED_PROFILES } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
 import { channelCount, rad2deg, verifyBasis } from "@/engine/sh";
 import type {
   AnalysisResult,
+  BedProfile,
+  ContainerInfo,
   LfeMode,
   WorkerRequest,
   WorkerResponse,
