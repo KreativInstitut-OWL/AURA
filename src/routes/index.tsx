@@ -446,6 +446,8 @@ function Index() {
                   {(
                     [
                       ["inject", "Inject to W (-3 dB)"],
+                      ["inject0", "Inject to W (0 dB)"],
+                      ["inject10", "Inject to W (+10 dB)"],
                       ["exclude", "Exclude LFE"],
                     ] as [LfeMode, string][]
                   ).map(([mode, label]) => (
@@ -464,9 +466,12 @@ function Index() {
                   ))}
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Injection applies a 120 Hz 4th-order Butterworth low-pass to ACN 0 only.
+                  LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN
+                  0 (W) only, never encoded to a direction. +10 dB matches the Dolby subwoofer
+                  in-room calibration offset.
                 </p>
               </div>
+
 
               <div>
                 <div className="mb-2 flex items-center justify-between text-sm">
