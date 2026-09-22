@@ -115,27 +115,59 @@ export function cartesianToPolar(x: number, y: number, z: number) {
 }
 
 /**
- * Dolby reference room proportion (length / width). Dolby Atmos Renderer writes
- * object positions normalized to the room box, so a source authored at 45° on
- * the side wall is stored as X = ±1, Y = 1 / 1.4694591 = 0.6805225.
+ * Dolby reference room proportion (length / width). The Dolby Atmos Renderer
+ * stores an ear-level 45° side position as X = ±1, Y = 0.6805225.
  */
 export const DOLBY_ROOM_ASPECT = 1 / 0.6805225015;
 
 /**
+ * Ear-level warp table: geometric perimeter angle (deg) -> Dolby speaker angle.
+ *
+ * At ear level the room box anchors to bed speaker zones:
+ *   (±1, 1)      -> L/R          30°
+ *   (±1, 0.6805) -> Lw/Rw        45°
+ *   (±1, 0)      -> Lss/Rss      90°
+ *   (±1, -1)     -> Lrs/Rrs     135°
+ * At ceiling level the box anchors to the top rows, which sit at the plain
+ * geometric angles (45° / 90° / 135°), so no warp is applied there.
+ */
+const EAR_GEO = [0, 45, 55.7638, 90, 135, 180];
+const EAR_TARGET = [0, 30, 45, 90, 135, 180];
+
+function warpEarAzimuth(absDeg: number): number {
+  for (let i = 1; i < EAR_GEO.length; i++) {
+    const g0 = EAR_GEO[i - 1]!;
+    const g1 = EAR_GEO[i]!;
+    if (absDeg <= g1) {
+      const t = g1 - g0 < 1e-9 ? 0 : (absDeg - g0) / (g1 - g0);
+      return EAR_TARGET[i - 1]! + t * (EAR_TARGET[i]! - EAR_TARGET[i - 1]!);
+    }
+  }
+  return absDeg;
+}
+
+/**
  * Convert Dolby room-box cartesian coordinates to listening angles.
  *
- * Azimuth uses the room proportion so that side-wall positions keep the angle
- * they were authored with. Elevation is measured against the room perimeter
- * (not the euclidean radius), so the whole ceiling edge sits at 45°.
+ * Elevation is measured against the room perimeter (not the euclidean radius),
+ * so the whole ceiling edge sits at 45°. Azimuth blends between the ear-level
+ * speaker-zone warp and the plain ceiling geometry with height.
  */
 export function roomCartesianToPolar(x: number, y: number, z: number) {
-  const yr = y * DOLBY_ROOM_ASPECT;
-  const azimuth = Math.atan2(-x, yr);
-  const horizontal = Math.max(Math.abs(x), Math.abs(yr));
-  const elevation = horizontal > 1e-9 ? Math.atan2(z, horizontal) : z >= 0 ? Math.PI / 2 : -Math.PI / 2;
-  const distance = Math.min(1, Math.sqrt(x * x + yr * yr + z * z) / Math.SQRT2) || 1;
+  const geoDeg = (Math.atan2(-x, y) * 180) / Math.PI;
+  const sign = geoDeg < 0 ? -1 : 1;
+  const absGeo = Math.abs(geoDeg);
+  const h = Math.min(1, Math.abs(z));
+  const azDeg = sign * ((1 - h) * warpEarAzimuth(absGeo) + h * absGeo);
+  const azimuth = (azDeg * Math.PI) / 180;
+
+  const horizontal = Math.max(Math.abs(x), Math.abs(y));
+  const elevation =
+    horizontal > 1e-9 ? Math.atan2(z, horizontal) : z >= 0 ? Math.PI / 2 : -Math.PI / 2;
+  const distance = Math.min(1, Math.sqrt(x * x + y * y + z * z)) || 1;
   return { azimuth, elevation, distance };
 }
+
 
 
 export const deg2rad = (d: number) => (d * Math.PI) / 180;
