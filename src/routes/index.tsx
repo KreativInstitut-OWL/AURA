@@ -24,7 +24,6 @@ import { analyseAdm } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
 import { channelCount, rad2deg, verifyBasis } from "@/engine/sh";
 import type {
-  AmbiOrderAlias,
   AnalysisResult,
   LfeMode,
   WorkerRequest,
@@ -104,7 +103,7 @@ function Index() {
     if (!analysis || rendering) return;
     let raf = 0;
     const total = analysis.container.frameCount;
-    const rate = analysis.container.sampleRate;
+    const rate = analysis.container.format.sampleRate;
     const t0 = performance.now();
     const tick = () => {
       const elapsedSec = (performance.now() - t0) / 1000;
@@ -198,7 +197,7 @@ function Index() {
         blockAlign: analysis.container.format.blockAlign,
         bitsPerSample: analysis.container.format.bitsPerSample,
         channels: analysis.container.format.channels,
-        sampleRate: analysis.container.sampleRate ?? analysis.container.format.sampleRate,
+        sampleRate: analysis.container.format.sampleRate,
       },
       config: { order, lfeMode, masterGain: Math.pow(10, gainDb / 20) },
       handle,
@@ -312,14 +311,14 @@ function Index() {
                   <Boxes className="size-4 text-primary" /> Spatial trajectories
                 </h2>
                 <span className="font-mono text-xs text-muted-foreground">
-                  {fmtTime(playhead / analysis.container.sampleRate)} /{" "}
+                  {fmtTime(playhead / analysis.container.format.sampleRate)} /{" "}
                   {fmtTime(analysis.container.durationSec)}
                 </span>
               </div>
               <SpatialViewer
                 sources={analysis.sources}
                 frameCount={analysis.container.frameCount}
-                sampleRate={analysis.container.sampleRate}
+                sampleRate={analysis.container.format.sampleRate}
                 playheadSample={playhead}
               />
               <p className="mt-2 text-xs text-muted-foreground">
@@ -444,7 +443,7 @@ function Index() {
               <div className="flex gap-4 font-mono text-xs text-muted-foreground">
                 <span>{pct.toFixed(1)}%</span>
                 <span>{fmtBytes(bytesWritten)} written</span>
-                <span>{(speed / (analysis.container.sampleRate || 1)).toFixed(1)}× realtime</span>
+                <span>{(speed / (analysis.container.format.sampleRate || 1)).toFixed(1)}× realtime</span>
                 <span>ETA {fmtTime(eta)}</span>
               </div>
             </div>
@@ -543,5 +542,3 @@ function Stat({ label, value }: { label: string; value: string }) {
     </Card>
   );
 }
-
-export type { AmbiOrderAlias };
