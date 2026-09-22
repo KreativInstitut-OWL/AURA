@@ -466,14 +466,21 @@ export function analyseAdm(
 
     // --- Common-definition bed channel -------------------------------------
     if (common) {
+      // The catalogue gives the ITU nominal angles. In Dolby mode the matching
+      // 7.1.2 role is placed at the Dolby Atmos studio reference angles instead.
+      const commonRole = roleFromLabel(common.label) ?? roleFromLabel(common.name);
+      const geo = commonRole ? layout[commonRole] : undefined;
+      const azDeg = geo ? geo.az : common.azimuth;
+      const elDeg = geo ? geo.el : common.elevation;
+      const name = commonRole ?? common.label ?? common.name;
       sources.push({
         channelIndex,
         kind: "bed",
-        name: common.label || common.name,
+        name,
         uid: entry.uid,
         isLFE: common.label.toUpperCase().startsWith("LFE"),
-        azimuth: deg2rad(common.azimuth),
-        elevation: deg2rad(common.elevation),
+        azimuth: deg2rad(azDeg),
+        elevation: deg2rad(elDeg),
         gain: 1,
         points: [],
       });
@@ -482,8 +489,8 @@ export function analyseAdm(
         uid: entry.uid,
         status: "bed",
         guessed,
-        name: common.label || common.name,
-        detail: `${common.name} at ${common.azimuth}° / ${common.elevation}°`,
+        name,
+        detail: `${common.name} (${common.label}) at ${azDeg}° / ${elDeg}° — ${profileName}`,
         steps,
       });
       continue;
