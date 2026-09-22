@@ -307,9 +307,9 @@ export function analyseAdm(
     warnings.push(
       "No usable axml/chna metadata — falling back to a channel-order 7.1.2 bed mapping.",
     );
-    const n = Math.min(container.format.channels, BED_ORDER.length);
+    const n = Math.min(container.format.channels, FALLBACK_BED_ORDER.length);
     for (let i = 0; i < n; i++) {
-      const role = BED_ORDER[i]!;
+      const role = FALLBACK_BED_ORDER[i]!;
       const geo = layout[role]!;
       sources.push({
         channelIndex: i,
