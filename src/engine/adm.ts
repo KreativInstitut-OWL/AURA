@@ -76,7 +76,24 @@ export const BED_PROFILE_LABEL: Record<BedProfile, string> = {
 /** Back-compat alias — the Dolby layout is the default. */
 export const BED_LAYOUT = DOLBY_BED_LAYOUT;
 
-export const BED_ORDER = ["L", "R", "C", "LFE", "Lss", "Rss", "Lrs", "Rrs", "Ltm", "Rtm"];
+export const BED_ORDER = [
+  "L",
+  "R",
+  "C",
+  "LFE",
+  "Lw",
+  "Rw",
+  "Lss",
+  "Rss",
+  "Lrs",
+  "Rrs",
+  "Ltf",
+  "Rtf",
+  "Ltm",
+  "Rtm",
+  "Ltr",
+  "Rtr",
+];
 
 /** BS.2051 speaker labels (and Dolby shorthands) to bed/speaker roles. */
 const LABEL_TO_ROLE: Record<string, string> = {
