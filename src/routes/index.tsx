@@ -77,8 +77,15 @@ const fmtTime = (s: number) => {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 };
 
+const PROFILES: { id: BedProfile; label: string; blurb: string }[] = [
+  { id: "dolby", label: "Dolby mode", blurb: "Atmos studio reference · sides ±100° · tops ±90°/+45°" },
+  { id: "itu", label: "ITU mode", blurb: "BS.2051 / BS.2094 nominal · sides ±90° · tops ±90°/+30°" },
+];
+
 function Index() {
   const [file, setFile] = useState<File | null>(null);
+  const [container, setContainer] = useState<ContainerInfo | null>(null);
+  const [profile, setProfile] = useState<BedProfile>("dolby");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,21 +124,36 @@ function Index() {
     return () => cancelAnimationFrame(raf);
   }, [analysis, rendering]);
 
-  const loadFile = useCallback(async (f: File) => {
-    setError(null);
-    setAnalysis(null);
-    setResult(null);
-    setFile(f);
-    setAnalysing(true);
+  const loadFile = useCallback(
+    async (f: File) => {
+      setError(null);
+      setAnalysis(null);
+      setContainer(null);
+      setResult(null);
+      setFile(f);
+      setAnalysing(true);
+      try {
+        const parsed = await parseContainer(f);
+        setContainer(parsed);
+        setAnalysis(analyseAdm(parsed, profile));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setAnalysing(false);
+      }
+    },
+    [profile],
+  );
+
+  // Re-resolve bed positions instantly when the reference profile changes.
+  useEffect(() => {
+    if (!container) return;
     try {
-      const container = await parseContainer(f);
-      setAnalysis(analyseAdm(container));
+      setAnalysis(analyseAdm(container, profile));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setAnalysing(false);
     }
-  }, []);
+  }, [container, profile]);
 
   const startRender = useCallback(async () => {
     if (!file || !analysis) return;
