@@ -5,7 +5,7 @@ import {
   isCommonId,
   type CommonChannel,
 } from "./common-definitions";
-import { cartesianToPolar, deg2rad } from "./sh";
+import { deg2rad, roomCartesianToPolar } from "./sh";
 import type {
   AnalysisResult,
   BedProfile,
