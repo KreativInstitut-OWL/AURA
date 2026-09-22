@@ -308,7 +308,7 @@ function Index() {
                   const g = BED_PROFILES[profile][r]!;
                   return (
                     <td key={r} className="px-2 whitespace-nowrap">
-                      {g.az}° / {g.el}°
+                      {r === "LFE" ? "Omni (W)" : `${g.az}° / ${g.el}°`}
                     </td>
                   );
                 })}
@@ -569,12 +569,16 @@ function Index() {
                         <span
                           className={s.kind === "bed" ? "text-primary" : "text-accent"}
                         >
-                          {s.isLFE ? "LFE" : s.kind === "bed" ? "DirectSpeakers" : "Object"}
+                          {s.isLFE ? "LFE (Omni → W)" : s.kind === "bed" ? "DirectSpeakers" : "Object"}
                         </span>
                       </td>
                       <td className="p-2 text-muted-foreground">{s.uid}</td>
-                      <td className="p-2 text-right">{rad2deg(s.azimuth).toFixed(1)}°</td>
-                      <td className="p-2 text-right">{rad2deg(s.elevation).toFixed(1)}°</td>
+                      <td className="p-2 text-right">
+                        {s.isLFE ? "Omni" : `${rad2deg(s.azimuth).toFixed(1)}°`}
+                      </td>
+                      <td className="p-2 text-right">
+                        {s.isLFE ? "W ch" : `${rad2deg(s.elevation).toFixed(1)}°`}
+                      </td>
                       <td className="p-2 text-right">{s.points.length || "static"}</td>
                     </tr>
                   ))}
