@@ -59,11 +59,31 @@ export interface RenderSource {
   points: TrajectoryPoint[];
 }
 
+export interface ResolutionStep {
+  label: string;
+  value: string | null;
+  ok: boolean;
+}
+
+export type TrackStatus = "bed" | "object" | "unresolved";
+
+export interface TrackDiagnostic {
+  trackIndex: number; // 1-based
+  uid: string;
+  status: TrackStatus;
+  /** true when the position came from a layout-order fallback, not an explicit definition */
+  guessed: boolean;
+  name: string;
+  detail: string;
+  steps: ResolutionStep[];
+}
+
 export interface AnalysisResult {
   container: ContainerInfo;
   sources: RenderSource[];
   warnings: string[];
   programmeName: string | null;
+  diagnostics: TrackDiagnostic[];
 }
 
 export type LfeMode = "inject" | "exclude";
