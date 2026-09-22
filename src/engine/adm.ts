@@ -355,6 +355,19 @@ export function analyseAdm(container: ContainerInfo): AnalysisResult {
             ok: !!cfId,
           });
         }
+        // Common-definition track formats are named AT_<channelFormatID>_<nn>,
+        // so the channel ID can be derived when the chain isn't in the file.
+        if (!cfId) {
+          const m = /^AT_(0001[0-9a-fA-F]{4})_/.exec(tfId);
+          if (m) {
+            cfId = `AC_${m[1]!.toLowerCase()}`;
+            steps.push({
+              label: "common-definition track format",
+              value: `${tfId} → ${cfId}`,
+              ok: true,
+            });
+          }
+        }
       }
     }
 
