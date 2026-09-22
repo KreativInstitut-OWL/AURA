@@ -147,7 +147,7 @@ async function render(req: WorkerRequest) {
     // --- LFE: 120 Hz low-pass, injected into W only ---
     for (const l of lfes) {
       const filt = lfeFilters.get(l)!;
-      const g = LFE_GAIN * config.masterGain;
+      const g = (LFE_MODE_GAIN[config.lfeMode] ?? Math.SQRT1_2) * config.masterGain;
       const chOff = l.channelIndex * bytesPerSample;
       for (let f = 0; f < frames; f++) {
         const s = filt.process(decode(raw, f * container.blockAlign + chOff));
