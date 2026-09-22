@@ -569,20 +569,21 @@ export function analyseAdm(
       const labelCommon = (Object.values(COMMON_CHANNELS) as CommonChannel[]).find(
         (c) => c.label === (block?.speakerLabel ?? "").split(":").pop(),
       );
-      // A recognised 7.1.2 role is always placed at the active profile's
-      // reference angle; anything else keeps the position written in the file.
+      // Speaker channels are identified by their role/speakerLabel; the room-box
+      // cartesian values a renderer writes for them are drawing coordinates, not
+      // listening angles, so the reference geometry wins for known roles.
       const bedRole = role ?? fromLabel ?? roleFromLabel(labelCommon?.label ?? null);
       const geo = bedRole ? layout[bedRole] : undefined;
       let az: number | null = null;
       let el: number | null = null;
       let how = "";
-      // Priority 1: explicit non-zero coordinates written in the file.
-      if (block && (block.az !== 0 || block.el !== 0)) {
+      // Priority 1: explicit polar angles written in the file.
+      if (block && block.positionSource === "polar" && (block.az !== 0 || block.el !== 0)) {
         az = block.az;
         el = block.el;
-        how = "explicit position in file";
+        how = "explicit polar position in file";
       } else if (geo) {
-        // Priority 2: recognised 7.1.2 role at the active profile's reference angle.
+        // Priority 2: recognised speaker role at the active profile's reference angle.
         az = deg2rad(geo.az);
         el = deg2rad(geo.el);
         how = `${bedRole} at ${profileName}`;
@@ -590,11 +591,16 @@ export function analyseAdm(
         az = deg2rad(labelCommon.azimuth);
         el = deg2rad(labelCommon.elevation);
         how = `speaker label ${labelCommon.label}`;
+      } else if (block && (block.az !== 0 || block.el !== 0)) {
+        az = block.az;
+        el = block.el;
+        how = block.positionSource === "room" ? "room coordinates in file" : "position in file";
       } else if (block) {
         az = block.az;
         el = block.el;
         how = "position in file";
       }
+
 
       if (az == null || el == null) {
         warnings.push(
