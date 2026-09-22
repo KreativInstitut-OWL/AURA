@@ -258,7 +258,7 @@ export function analyseAdm(
         status: "bed",
         guessed: true,
         name: role,
-        detail: "No ADM metadata — assumed from channel order.",
+        detail: `No ADM metadata — assumed from channel order (${profileName}).`,
         steps: [{ label: "metadata", value: "none", ok: false }],
       });
     }
