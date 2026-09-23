@@ -36,15 +36,17 @@ window.__run = async () => {
       maxFrames: PREVIEW_MAX_SECONDS * c.format.sampleRate,
     });
   });
+  console.log("step: preview done");
   out.previewChannels = done.channels.length;
   out.previewFrames = done.frameCount;
   const peak = (a: Float32Array) => { let m = 0; for (const v of a) { const x = Math.abs(v); if (x > m) m = x; } return m; };
   out.peakW = peak(done.channels[0] as Float32Array);
   out.nonSilentChannels = done.channels.filter((ch: Float32Array) => ch.some((v) => Math.abs(v) > 1e-6)).length;
 
-  // HOAST offline decode check
+  console.log("step: peaks ok", out.peakW, out.nonSilentChannels);
   const ctx = new OfflineAudioContext(2, done.sampleRate * 1, done.sampleRate);
   const filters = await loadHoastFilters(ctx, order);
+  console.log("step: filters", filters.length);
   out.filterChannels = filters.length;
   const dec = new HoastBinauralDecoder(ctx, order);
   dec.updateFilters(filters);
@@ -55,6 +57,7 @@ window.__run = async () => {
   src.connect(dec.input);
   dec.output.connect(ctx.destination);
   src.start();
+  console.log("step: graph built");
   const rendered = await ctx.startRendering();
   const L = rendered.getChannelData(0), R = rendered.getChannelData(1);
   out.binauralPeakL = peak(L);
