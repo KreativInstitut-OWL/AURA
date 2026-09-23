@@ -11,7 +11,7 @@ import {
   Square,
   TriangleAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { BinauralDeck, type PreviewAudio } from "@/components/adm/BinauralDeck";
 import { MetadataInspector } from "@/components/adm/MetadataInspector";
@@ -94,9 +94,9 @@ function Panel({
   className = "",
 }: {
   title: string;
-  icon?: React.ReactNode;
-  right?: React.ReactNode;
-  children: React.ReactNode;
+  icon?: ReactNode;
+  right?: ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
@@ -122,7 +122,7 @@ function Pill({
   active: boolean;
   onClick: () => void;
   disabled?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
