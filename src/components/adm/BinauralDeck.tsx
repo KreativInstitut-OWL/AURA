@@ -220,6 +220,12 @@ export function BinauralDeck({ preview, generating, progress, canGenerate, onGen
         auditioned at 4th order. The exported file always carries every channel.
       </p>
 
+      {trimDb < -0.1 && (
+        <p className="mb-3 font-mono text-[11px] text-[var(--v2-valid)]">
+          Monitor trim {trimDb.toFixed(1)} dB — listening only, the export is untouched.
+        </p>
+      )}
+
       <button
         onClick={onGenerate}
         disabled={!canGenerate || generating}
