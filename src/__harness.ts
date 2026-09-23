@@ -46,10 +46,10 @@ window.__run = async () => {
   console.log("step: peaks ok", out.peakW, out.nonSilentChannels);
   const ctx = new OfflineAudioContext(2, done.sampleRate * 1, done.sampleRate);
   const filters = await loadHoastFilters(ctx, order);
-  console.log("step: filters", filters.length);
-  out.filterChannels = filters.length;
+  console.log("step: filters");
+  out.filterChannels = filters.foa.numberOfChannels + (filters.hoa ? filters.hoa.numberOfChannels : 0);
   const dec = new HoastBinauralDecoder(ctx, order);
-  dec.updateFilters(filters);
+  dec.setFilters(filters);
   const buf = ctx.createBuffer(done.channels.length, done.frameCount, done.sampleRate);
   for (let i = 0; i < done.channels.length; i++) buf.getChannelData(i).set(done.channels[i]);
   const src = ctx.createBufferSource();
