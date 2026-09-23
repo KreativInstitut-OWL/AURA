@@ -38,7 +38,8 @@ window.__run = async () => {
   });
   out.previewChannels = done.channels.length;
   out.previewFrames = done.frameCount;
-  out.peakW = Math.max(...Array.from(done.channels[0] as Float32Array).map(Math.abs));
+  const peak = (a: Float32Array) => { let m = 0; for (const v of a) { const x = Math.abs(v); if (x > m) m = x; } return m; };
+  out.peakW = peak(done.channels[0] as Float32Array);
   out.nonSilentChannels = done.channels.filter((ch: Float32Array) => ch.some((v) => Math.abs(v) > 1e-6)).length;
 
   // HOAST offline decode check
@@ -56,7 +57,7 @@ window.__run = async () => {
   src.start();
   const rendered = await ctx.startRendering();
   const L = rendered.getChannelData(0), R = rendered.getChannelData(1);
-  out.binauralPeakL = Math.max(...Array.from(L).map(Math.abs));
-  out.binauralPeakR = Math.max(...Array.from(R).map(Math.abs));
+  out.binauralPeakL = peak(L);
+  out.binauralPeakR = peak(R);
   return out;
 };
