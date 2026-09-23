@@ -41,6 +41,7 @@ export function BinauralDeck({ preview, generating, progress, canGenerate, onGen
   const offsetRef = useRef(0);
 
   const [ready, setReady] = useState(false);
+  const [trimDb, setTrimDb] = useState(0);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
