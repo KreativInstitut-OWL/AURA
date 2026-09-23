@@ -86,16 +86,30 @@ export function BinauralDeck({ preview, generating, progress, canGenerate, onGen
           preview.frameCount,
           preview.sampleRate,
         );
+        let peak = 0;
         for (let i = 0; i < preview.channels.length; i++) {
-          buf.getChannelData(i).set(preview.channels[i]!);
+          const ch = preview.channels[i]!;
+          for (let n = 0; n < ch.length; n++) {
+            const v = Math.abs(ch[n]!);
+            if (v > peak) peak = v;
+          }
+          buf.getChannelData(i).set(ch);
         }
         bufferRef.current = buf;
 
+        // Binaural decoding of a dense HOA scene adds roughly 4 dB over the
+        // ambisonic peak, so trim the monitor path to stay clear of clipping.
+        const trimLin = peak > 0 ? Math.min(1, 0.5 / peak) : 1;
+        setTrimDb(trimLin < 1 ? 20 * Math.log10(trimLin) : 0);
+
         decoderRef.current?.disconnect();
         const decoder = new HoastBinauralDecoder(ctx, preview.order);
+        const trim = ctx.createGain();
+        trim.gain.value = trimLin;
         const gain = ctx.createGain();
         gain.gain.value = muted ? 0 : volume;
-        decoder.output.connect(gain);
+        decoder.output.connect(trim);
+        trim.connect(gain);
         gain.connect(ctx.destination);
         decoderRef.current = decoder;
         gainRef.current = gain;
