@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
   AudioWaveform,
@@ -254,8 +254,21 @@ function Index() {
   return (
     <main className="mx-auto max-w-6xl px-5 py-10">
       <header className="mb-8">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-          <Globe className="size-3 text-primary" /> ACN · SN3D · AmbiX
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            <Globe className="size-3 text-primary" /> ACN · SN3D · AmbiX
+          </div>
+          <div className="inline-flex rounded-full border border-border bg-card/60 p-0.5">
+            <span className="rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground">
+              v1 Classic
+            </span>
+            <Link
+              to="/v2"
+              className="rounded-full px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              v2 Workstation →
+            </Link>
+          </div>
         </div>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
           ADM <span className="text-primary">→</span> Ambisonics Direct Renderer
