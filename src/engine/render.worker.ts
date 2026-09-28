@@ -223,7 +223,12 @@ async function render(req: WorkerRequest) {
 
   if (writable) {
     await writable.close();
-    post({ type: "done", blob: null, bytesWritten, elapsedMs: performance.now() - started });
+    post({
+      type: "done",
+      blob: cached ? new Blob(blobParts, { type: "audio/wav" }) : null,
+      bytesWritten,
+      elapsedMs: performance.now() - started,
+    });
   } else {
     post({
       type: "done",
