@@ -140,7 +140,7 @@
  * AURA workstation theme — light by default, following the ai-tagger reference:
  * soft off-white canvas, white cards, hairline borders, black pill actions,
  * emerald "valid" accent. A `.dark` class on <html> flips it to the console
- * palette. Scoped so the classic page keeps its own look.
+ * palette. Scoped to the AURA workstation.
  */
 .v2-theme {
   --radius: 0.85rem;
