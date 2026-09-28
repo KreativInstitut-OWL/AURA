@@ -637,7 +637,8 @@ export function analyseAdm(
       // The catalogue gives the ITU nominal angles. In Dolby mode the matching
       // 7.1.2 role is placed at the Dolby Atmos studio reference angles instead.
       const commonRole = roleFromLabel(common.label) ?? roleFromLabel(common.name);
-      const geo = commonRole ? layout[commonRole] : undefined;
+      // ITU mode: the BS.2051 catalogue angles are used exactly as defined.
+      const geo = commonRole && profile !== "itu" ? layout[commonRole] : undefined;
       const azDeg = geo ? geo.az : common.azimuth;
       const elDeg = geo ? geo.el : common.elevation;
       const name = commonRole ?? common.label ?? common.name;
@@ -690,7 +691,8 @@ export function analyseAdm(
       // cartesian values a renderer writes for them are drawing coordinates, not
       // listening angles, so the reference geometry wins for known roles.
       const bedRole = role ?? fromLabel ?? roleFromLabel(labelCommon?.label ?? null);
-      const geo = bedRole ? layout[bedRole] : undefined;
+      // ITU mode: a BS.2051 speaker label resolves to its catalogue angle first.
+      const geo = bedRole && !(profile === "itu" && labelCommon) ? layout[bedRole] : undefined;
       let az: number | null = null;
       let el: number | null = null;
       let how = "";
