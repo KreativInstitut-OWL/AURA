@@ -506,10 +506,11 @@ function Workstation() {
             )}
           </Panel>
 
-          <Panel title="Bed reference geometry" icon={<Layers className="size-3.5" />}>
+          <Panel title="7.1.2 bed reference" icon={<Layers className="size-3.5" />}>
             <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
-              Explicit coordinates written in the file always win. These angles apply only where
-              the file leaves a bed role undefined.
+              A Dolby Atmos bed is at most 7.1.2 — these ten channels. Wide and the remaining
+              height positions arrive as dynamic objects and are placed from their own
+              coordinates. Explicit coordinates in the file always win over this table.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full font-mono text-[10px]">
