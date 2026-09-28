@@ -131,6 +131,47 @@ export const ALL_SPEAKER_ROLES = [
   "Rtr",
 ];
 
+/**
+ * Default interleave order assumed for a plain multichannel file that carries
+ * no ADM metadata. There is no universal convention across renderers, so these
+ * are only a starting point: the user can re-assign every channel in the UI.
+ */
+export const SMPTE_DEFAULTS: Record<number, string[]> = {
+  8: ["L", "R", "C", "LFE", "Lss", "Rss", "Ltm", "Rtm"],
+  10: ["L", "R", "C", "LFE", "Lrs", "Rrs", "Lss", "Rss", "Ltm", "Rtm"],
+  12: ["L", "R", "C", "LFE", "Lrs", "Rrs", "Lss", "Rss", "Ltf", "Rtf", "Ltr", "Rtr"],
+  14: ["L", "R", "C", "LFE", "Lss", "Rss", "Lrs", "Rrs", "Lw", "Rw", "Ltf", "Rtf", "Ltr", "Rtr"],
+  16: [
+    "L", "R", "C", "LFE", "Lss", "Rss", "Lrs", "Rrs", "Lw", "Rw",
+    "Ltf", "Rtf", "Ltm", "Rtm", "Ltr", "Rtr",
+  ],
+};
+
+/** Layout name for a channel count that has a default assumption. */
+export const SMPTE_LAYOUT_NAME: Record<number, string> = {
+  8: "5.1.2",
+  10: "7.1.2",
+  12: "7.1.4",
+  14: "9.1.4",
+  16: "9.1.6",
+};
+
+/** "unused" marker in a channel map — the channel is not encoded at all. */
+export const CHANNEL_UNUSED = "—";
+
+/**
+ * Best-effort default channel map for a file with no ADM metadata. Channels
+ * beyond a known layout are left unassigned rather than silently guessed.
+ */
+export function defaultChannelMap(channels: number): string[] {
+  const known = SMPTE_DEFAULTS[channels];
+  if (known) return [...known];
+  const map: string[] = [];
+  for (let i = 0; i < channels; i++) map.push(FALLBACK_BED_ORDER[i] ?? CHANNEL_UNUSED);
+  return map;
+}
+
+
 /** BS.2051 speaker labels (and Dolby shorthands) to bed/speaker roles. */
 const LABEL_TO_ROLE: Record<string, string> = {
   "M+030": "L",
@@ -328,6 +369,7 @@ function parseBlock(block: Element) {
 export function analyseAdm(
   container: ContainerInfo,
   profile: BedProfile = "dolby",
+  channelMap?: string[],
 ): AnalysisResult {
   const warnings: string[] = [];
   const layout = BED_PROFILES[profile];
@@ -340,13 +382,31 @@ export function analyseAdm(
   if (container.hasDbmd) warnings.push("Proprietary 'dbmd' chunk found — ignored by design.");
 
   if (!container.axml || container.chna.length === 0) {
+    const nCh = container.format.channels;
+    const map = channelMap && channelMap.length === nCh ? channelMap : defaultChannelMap(nCh);
+    const layoutName = SMPTE_LAYOUT_NAME[nCh];
     warnings.push(
-      "No usable axml/chna metadata — falling back to a channel-order 7.1.2 bed mapping.",
+      channelMap && channelMap.length === nCh
+        ? "No ADM metadata — loudspeaker positions come from your channel assignment."
+        : layoutName
+          ? `No ADM metadata — positions ASSUMED from a ${layoutName} channel order. Check the channel assignment before rendering.`
+          : "No ADM metadata and no default order for this channel count — assign every channel manually.",
     );
-    const n = Math.min(container.format.channels, FALLBACK_BED_ORDER.length);
-    for (let i = 0; i < n; i++) {
-      const role = FALLBACK_BED_ORDER[i]!;
-      const geo = layout[role]!;
+    for (let i = 0; i < nCh; i++) {
+      const role = map[i] ?? CHANNEL_UNUSED;
+      const geo = layout[role];
+      if (!geo) {
+        diagnostics.push({
+          trackIndex: i + 1,
+          uid: `CH_${i + 1}`,
+          status: "unresolved",
+          guessed: false,
+          name: role === CHANNEL_UNUSED ? "unassigned" : role,
+          detail: "Not assigned to a loudspeaker — this channel is not encoded.",
+          steps: [{ label: "metadata", value: "none", ok: false }],
+        });
+        continue;
+      }
       sources.push({
         channelIndex: i,
         kind: "bed",
@@ -364,11 +424,12 @@ export function analyseAdm(
         status: "bed",
         guessed: true,
         name: role,
-        detail: `No ADM metadata — assumed from channel order (${profileName}).`,
+        detail: `No ADM metadata — position assumed from the channel assignment (${profileName}).`,
         steps: [{ label: "metadata", value: "none", ok: false }],
       });
     }
     return { container, sources, warnings, programmeName, diagnostics };
+
   }
 
   const doc = new DOMParser().parseFromString(container.axml, "application/xml");

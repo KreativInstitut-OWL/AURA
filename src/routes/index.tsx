@@ -15,12 +15,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { BinauralDeck, type PreviewAudio } from "@/components/adm/BinauralDeck";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ChannelMapEditor } from "@/components/adm/ChannelMapEditor";
 import { MetadataInspector } from "@/components/adm/MetadataInspector";
 import { Meters } from "@/components/adm/Meters";
 import { SpatialViewer } from "@/components/adm/SpatialViewer";
 import { Progress } from "@/components/ui/progress";
-import { analyseAdm, BED_ORDER, BED_PROFILES } from "@/engine/adm";
+import { analyseAdm, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
+import type { DecodeRequest, DecodeResponse } from "@/engine/decode.worker";
 import {
   PREVIEW_MAX_SECONDS,
   previewOrderFor,
@@ -28,6 +30,7 @@ import {
   type PreviewResponse,
 } from "@/engine/preview-types";
 import { channelCount, rad2deg } from "@/engine/sh";
+
 import type {
   AnalysisResult,
   BedProfile,
@@ -60,6 +63,10 @@ export const Route = createFileRoute("/")({
 });
 
 const ORDERS = [3, 5, 7] as const;
+
+/** memory ceiling for one audition window of the rendered file */
+const AUDITION_BUDGET_BYTES = 400 * 1024 * 1024;
+
 type Order = (typeof ORDERS)[number];
 
 const LFE_MODES: [LfeMode, string, string][] = [
@@ -164,15 +171,23 @@ function Workstation() {
   const [preview, setPreview] = useState<PreviewAudio | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewPct, setPreviewPct] = useState(0);
+  const [renderedBlob, setRenderedBlob] = useState<Blob | null>(null);
+  const [windowLoading, setWindowLoading] = useState(false);
+
+  /** channel → loudspeaker assignment, only used for files without ADM metadata */
+  const [channelMap, setChannelMap] = useState<string[] | null>(null);
 
   const workerRef = useRef<Worker | null>(null);
   const previewWorkerRef = useRef<Worker | null>(null);
+  const decodeWorkerRef = useRef<Worker | null>(null);
   const outChannels = channelCount(order);
+  const needsChannelMap = !!container && (!container.axml || container.chna.length === 0);
 
   useEffect(
     () => () => {
       workerRef.current?.terminate();
       previewWorkerRef.current?.terminate();
+      decodeWorkerRef.current?.terminate();
     },
     [],
   );
@@ -200,12 +215,19 @@ function Workstation() {
       setContainer(null);
       setResult(null);
       setPreview(null);
+      setRenderedBlob(null);
+      setChannelMap(null);
       setFile(f);
       setAnalysing(true);
       try {
         const parsed = await parseContainer(f);
+        const map =
+          !parsed.axml || parsed.chna.length === 0
+            ? defaultChannelMap(parsed.format.channels)
+            : null;
+        setChannelMap(map);
         setContainer(parsed);
-        setAnalysis(analyseAdm(parsed, profile));
+        setAnalysis(analyseAdm(parsed, profile, map ?? undefined));
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -218,11 +240,72 @@ function Workstation() {
   useEffect(() => {
     if (!container) return;
     try {
-      setAnalysis(analyseAdm(container, profile));
+      setAnalysis(analyseAdm(container, profile, channelMap ?? undefined));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [container, profile]);
+  }, [container, profile, channelMap]);
+
+  /**
+   * Auditions the finished AmbiX file itself: the leading 16 (3rd order) or
+   * 25 (4th order) ACN channels are decoded in a memory-sized window, so a
+   * long render stays playable end to end by moving the window.
+   */
+  const auditionRendered = useCallback(
+    (blob: Blob, startSec: number, renderOrder: number, rate: number, totalSec: number) => {
+      decodeWorkerRef.current?.terminate();
+      const worker = new Worker(new URL("../engine/decode.worker.ts", import.meta.url), {
+        type: "module",
+      });
+      decodeWorkerRef.current = worker;
+      setWindowLoading(true);
+
+      const pOrder = previewOrderFor(renderOrder);
+      const keep = channelCount(pOrder);
+      const maxFrames = Math.floor(AUDITION_BUDGET_BYTES / (keep * 4));
+
+      worker.onerror = (ev) => {
+        setError(`Could not read the rendered file: ${ev.message || "unknown error"}`);
+        setWindowLoading(false);
+      };
+      worker.onmessage = (ev: MessageEvent<DecodeResponse>) => {
+        const msg = ev.data;
+        if (msg.type === "done") {
+          setPreview({
+            channels: msg.channels,
+            sampleRate: msg.sampleRate,
+            frameCount: msg.frameCount,
+            order: pOrder,
+            renderOrder,
+            truncated: msg.frameCount < msg.totalFrames,
+            startSec: msg.startFrame / msg.sampleRate,
+            fullDurationSec: msg.totalFrames / msg.sampleRate,
+            source: "render",
+          });
+          setWindowLoading(false);
+          worker.terminate();
+          decodeWorkerRef.current = null;
+        } else if (msg.type === "error") {
+          setError(msg.message);
+          setWindowLoading(false);
+          worker.terminate();
+          decodeWorkerRef.current = null;
+        }
+      };
+
+      const req: DecodeRequest = {
+        type: "decode",
+        blob,
+        startFrame: Math.max(0, Math.round(Math.min(startSec, totalSec) * rate)),
+        maxFrames,
+        maxChannels: keep,
+      };
+      worker.postMessage(req);
+    },
+    [],
+  );
+
+
 
   const startRender = useCallback(async () => {
     if (!file || !analysis) return;
@@ -278,6 +361,22 @@ function Workstation() {
         setResult({ url: msg.blob ? URL.createObjectURL(msg.blob) : "", name: outName });
         worker.terminate();
         workerRef.current = null;
+        // Audition the finished file instead of the short in-memory preview.
+        const rate = analysis.container.format.sampleRate;
+        const totalSec = analysis.container.frameCount / rate;
+        if (msg.blob) {
+          setRenderedBlob(msg.blob);
+          auditionRendered(msg.blob, 0, order, rate, totalSec);
+        } else if (handle) {
+          void handle
+            .getFile()
+            .then((f) => {
+              setRenderedBlob(f);
+              auditionRendered(f, 0, order, rate, totalSec);
+            })
+            .catch(() => undefined);
+        }
+
       } else {
         setError(msg.message);
         setRendering(false);
@@ -342,7 +441,10 @@ function Workstation() {
           renderOrder: order,
           truncated: msg.truncated,
           startSec: 0,
+          fullDurationSec: analysis.container.frameCount / rate,
+          source: "preview",
         });
+
         setPreviewing(false);
         worker.terminate();
         previewWorkerRef.current = null;
@@ -505,6 +607,25 @@ function Workstation() {
               </dl>
             )}
           </Panel>
+
+          {needsChannelMap && channelMap && (
+            <Panel title="Channel assignment" icon={<Layers className="size-3.5" />}>
+              <ChannelMapEditor
+                map={channelMap}
+                onChange={(next) => {
+                  setChannelMap(next);
+                  setPreview(null);
+                }}
+                onReset={() => {
+                  setChannelMap(defaultChannelMap(container!.format.channels));
+                  setPreview(null);
+                }}
+                disabled={rendering}
+              />
+            </Panel>
+          )}
+
+
 
           <Panel title="7.1.2 bed reference" icon={<Layers className="size-3.5" />}>
             <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
@@ -753,7 +874,21 @@ function Workstation() {
             progress={previewPct}
             canGenerate={!!analysis && !rendering}
             onGenerate={buildPreview}
+            windowLoading={windowLoading}
+            onSeekWindow={
+              renderedBlob && analysis
+                ? (sec) =>
+                    auditionRendered(
+                      renderedBlob,
+                      sec,
+                      order,
+                      analysis.container.format.sampleRate,
+                      analysis.container.frameCount / analysis.container.format.sampleRate,
+                    )
+                : undefined
+            }
           />
+
         </div>
       </div>
 
