@@ -39,17 +39,17 @@ import type {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ADM → Ambisonics Workstation" },
+      { title: "AURA — Atmos Universal Renderer into Ambisonics" },
       {
         name: "description",
         content:
-          "Three-column Atmos ADM workstation: stream map, spatial monitoring and AmbiX export with HOAST binaural audition in the browser.",
+          "AURA inspects Dolby Atmos ADM masters and renders them straight into 3rd, 5th or 7th order AmbiX, with binaural audition before download.",
       },
-      { property: "og:title", content: "ADM → Ambisonics Workstation" },
+      { property: "og:title", content: "AURA — Atmos Universal Renderer into Ambisonics" },
       {
         property: "og:description",
         content:
-          "Inspect Atmos ADM masters, render 3rd/5th/7th order AmbiX and audition the result binaurally before downloading.",
+          "Stream map, spatial monitoring and AmbiX export with in-browser binaural audition — entirely client-side.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
