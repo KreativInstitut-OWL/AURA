@@ -117,9 +117,14 @@ export class HoastBinauralDecoder {
 
   /** Install the real HOAST decoding filters. */
   setFilters(filters: HoastFilters) {
+    const target = this.ctx.sampleRate;
     const assign = (i: number, data: Float32Array, rate: number) => {
-      const buf = this.ctx.createBuffer(1, data.length, rate);
-      buf.getChannelData(0).set(data);
+      // Safari follows the spec strictly: a ConvolverNode buffer whose sample
+      // rate differs from the context throws NotSupportedError. The published
+      // HOAST filters are 44.1 kHz, so resample them onto the context rate.
+      const src = rate === target ? data : resampleLinear(data, rate, target);
+      const buf = this.ctx.createBuffer(1, src.length, target);
+      buf.getChannelData(0).set(src);
       this.convolvers[i]!.buffer = buf;
     };
     for (let i = 0; i < 4 && i < this.nCh; i++) {
