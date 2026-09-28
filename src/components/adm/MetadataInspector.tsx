@@ -205,7 +205,12 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                               {statusLabel(d)}
                             </Tag>
                           </td>
-                          <td className="p-2 text-muted-foreground">{d.detail}</td>
+                          <td
+                            title={d.detail}
+                            className="max-w-[220px] truncate p-2 text-muted-foreground"
+                          >
+                            {d.detail}
+                          </td>
                         </tr>
                         {expanded === d.trackIndex && (
                           <tr className="border-t border-border bg-secondary/30">
