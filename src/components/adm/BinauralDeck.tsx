@@ -211,6 +211,7 @@ export function BinauralDeck({
       const ctx = ctxRef.current;
       const decoder = decoderRef.current;
       const buf = bufferRef.current;
+      console.log('[deck] playFrom', offset, !!ctx, !!decoder, !!buf, ctx?.state);
       if (!ctx || !decoder || !buf) return;
       await ctx.resume().catch(() => undefined);
       stop();
@@ -231,6 +232,7 @@ export function BinauralDeck({
   );
 
   const toggle = () => {
+    console.log('[deck] toggle', playing, position, windowDur);
     if (playing) {
       const ctx = ctxRef.current;
       if (ctx) offsetRef.current += ctx.currentTime - startedAtRef.current;
