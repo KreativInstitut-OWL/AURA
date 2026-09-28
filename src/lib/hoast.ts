@@ -16,6 +16,30 @@ export const HOAST_MAX_ORDER = 4;
 
 const IR_BASE = "/hoast-irs/hoast";
 
+/** Band-limited enough for short HRIRs: linear interpolation resampler. */
+function resampleLinear(data: Float32Array, from: number, to: number): Float32Array {
+  if (from === to) return data;
+  const ratio = to / from;
+  const outLen = Math.max(1, Math.round(data.length * ratio));
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const p = i / ratio;
+    const i0 = Math.floor(p);
+    const i1 = Math.min(i0 + 1, data.length - 1);
+    const t = p - i0;
+    out[i] = data[i0]! * (1 - t) + data[i1]! * t;
+  }
+  return out;
+}
+
+/** Safari only recently added the promise form of decodeAudioData. */
+function decodeAudio(ctx: BaseAudioContext, data: ArrayBuffer): Promise<AudioBuffer> {
+  return new Promise((resolve, reject) => {
+    const maybe = ctx.decodeAudioData(data, resolve, reject);
+    if (maybe && typeof maybe.then === "function") maybe.then(resolve, reject);
+  });
+}
+
 const GROUPS: Record<number, string[]> = {
   1: ["_01-04ch"],
   2: ["_01-04ch", "_05-09ch"],
