@@ -36,7 +36,7 @@ import type {
   WorkerResponse,
 } from "@/engine/types";
 
-export const Route = createFileRoute("/v2")({
+export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "ADM → Ambisonics Workstation" },
