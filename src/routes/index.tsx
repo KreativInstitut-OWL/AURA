@@ -358,7 +358,7 @@ function Workstation() {
         setRendering(false);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
-        setResult({ url: msg.blob ? URL.createObjectURL(msg.blob) : "", name: outName });
+        setResult({ url: !handle && msg.blob ? URL.createObjectURL(msg.blob) : "", name: outName });
         worker.terminate();
         workerRef.current = null;
         // Audition the finished file instead of the short in-memory preview.
