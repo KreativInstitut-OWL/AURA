@@ -111,6 +111,11 @@ export class HoastBinauralDecoder {
     this.nCh = (order + 1) * (order + 1);
 
     this.input = ctx.createChannelSplitter(this.nCh);
+    // Safari otherwise down-mixes a 16/25-channel feed before it reaches the
+    // splitter; force the full channel count through untouched.
+    this.input.channelCount = this.nCh;
+    this.input.channelCountMode = "explicit";
+    this.input.channelInterpretation = "discrete";
     this.output = ctx.createChannelMerger(2);
 
     this.gainMid = ctx.createGain();
