@@ -21,14 +21,19 @@ export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
   );
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-accent/50 bg-accent/10 p-3 text-[11px] leading-relaxed text-foreground">
-        <TriangleAlert className="mr-1.5 inline size-3.5 text-accent" />
+    <div className="space-y-3 rounded-lg border-2 border-accent/70 bg-accent/[0.07] p-3 shadow-[0_0_0_4px_rgba(0,0,0,0.02)]">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-background">
+          <TriangleAlert className="size-3" /> Action required
+        </span>
+      </div>
+      <p className="text-[11px] leading-relaxed text-foreground">
         No ADM metadata in this file. Loudspeaker positions are <strong>assumed</strong> from the
         channel order
         {layout ? ` of a ${layout} layout` : ""}. There is no universal order across renderers —
         check every channel below before rendering.
-      </div>
+      </p>
+
 
       <div className="max-h-[340px] space-y-1 overflow-auto pr-1">
         {map.map((role, i) => (

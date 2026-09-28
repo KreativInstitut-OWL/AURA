@@ -2,12 +2,31 @@ import { ChevronDown, ChevronRight, CircleCheck, CircleX, Copy, Search } from "l
 import { Fragment, useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/card";
+import { rad2deg } from "@/engine/sh";
 import type { AnalysisResult, TrackDiagnostic } from "@/engine/types";
 
-function statusColor(d: TrackDiagnostic) {
-  if (d.status === "unresolved") return "text-destructive";
-  if (d.guessed) return "text-accent";
-  return "text-primary";
+const TAG_TONES = {
+  valid: "border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 text-[var(--v2-valid)]",
+  accent: "border-accent/40 bg-accent/10 text-accent",
+  primary: "border-primary/40 bg-primary/10 text-primary",
+  destructive: "border-destructive/50 bg-destructive/10 text-destructive",
+  muted: "border-border text-muted-foreground",
+} as const;
+
+function Tag({
+  tone,
+  children,
+}: {
+  tone: keyof typeof TAG_TONES;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase ${TAG_TONES[tone]}`}
+    >
+      {children}
+    </span>
+  );
 }
 
 function statusLabel(d: TrackDiagnostic) {
@@ -46,6 +65,14 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
   const [copied, setCopied] = useState<string | null>(null);
 
   const { container, diagnostics } = analysis;
+
+  /** the stream map lives in the same table: sources are keyed by 1-based track */
+  const sourceByTrack = useMemo(
+    () => new Map(analysis.sources.map((s) => [s.channelIndex + 1, s])),
+    [analysis.sources],
+  );
+
+
 
   const counts = useMemo(() => {
     const beds = diagnostics.filter((d) => d.status === "bed").length;
@@ -105,58 +132,111 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
 
       {open && (
         <div className="mt-4 space-y-5">
-          {/* Track resolution traces */}
+          {/* Stream map + track resolution traces */}
           <div>
             <p className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-              Resolution trace
+              Stream map & resolution trace
             </p>
-            <div className="max-h-80 overflow-auto rounded-md border border-border">
+            <div className="max-h-96 overflow-auto rounded-md border border-border">
               <table className="w-full font-mono text-xs">
                 <thead className="sticky top-0 bg-secondary text-muted-foreground">
                   <tr>
                     <th className="p-2 text-left">Trk</th>
-                    <th className="p-2 text-left">UID</th>
-                    <th className="p-2 text-left">Status</th>
                     <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Type</th>
+                    <th className="p-2 text-right">Az</th>
+                    <th className="p-2 text-right">El</th>
+                    <th className="p-2 text-left">Motion</th>
+                    <th className="p-2 text-left">Status</th>
                     <th className="p-2 text-left">Detail</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {diagnostics.map((d) => (
-                    <Fragment key={d.trackIndex}>
-                      <tr
-                        onClick={() =>
-                          setExpanded((v) => (v === d.trackIndex ? null : d.trackIndex))
-                        }
-                        className="cursor-pointer border-t border-border hover:bg-secondary/60"
-                      >
-                        <td className="p-2">{d.trackIndex}</td>
-                        <td className="p-2 text-muted-foreground">{d.uid}</td>
-                        <td className={`p-2 ${statusColor(d)}`}>{statusLabel(d)}</td>
-                        <td className="p-2">{d.name}</td>
-                        <td className="p-2 text-muted-foreground">{d.detail}</td>
-                      </tr>
-                      {expanded === d.trackIndex && (
-                        <tr className="border-t border-border bg-secondary/30">
-                          <td colSpan={5} className="p-2">
-                            <ol className="space-y-1">
-                              {d.steps.map((s, i) => (
-                                <li key={i} className="flex items-center gap-2">
-                                  {s.ok ? (
-                                    <CircleCheck className="size-3 text-primary" />
-                                  ) : (
-                                    <CircleX className="size-3 text-destructive" />
-                                  )}
-                                  <span className="text-muted-foreground">{s.label}</span>
-                                  <span>{s.value}</span>
-                                </li>
-                              ))}
-                            </ol>
+                  {diagnostics.map((d) => {
+                    const s = sourceByTrack.get(d.trackIndex);
+                    return (
+                      <Fragment key={d.trackIndex}>
+                        <tr
+                          onClick={() =>
+                            setExpanded((v) => (v === d.trackIndex ? null : d.trackIndex))
+                          }
+                          className="cursor-pointer border-t border-border hover:bg-secondary/60"
+                        >
+                          <td className="p-2">{String(d.trackIndex).padStart(2, "0")}</td>
+                          <td className="p-2">{d.name}</td>
+                          <td className="p-2">
+                            <Tag
+                              tone={
+                                s?.isLFE
+                                  ? "accent"
+                                  : s?.kind === "bed"
+                                    ? "valid"
+                                    : s
+                                      ? "muted"
+                                      : "muted"
+                              }
+                            >
+                              {s?.isLFE ? "LFE" : (s?.kind ?? "—")}
+                            </Tag>
+                          </td>
+                          <td className="p-2 text-right text-muted-foreground">
+                            {!s ? "—" : s.isLFE ? "omni → W" : `${rad2deg(s.azimuth).toFixed(1)}°`}
+                          </td>
+                          <td className="p-2 text-right text-muted-foreground">
+                            {!s || s.isLFE ? "—" : `${rad2deg(s.elevation).toFixed(1)}°`}
+                          </td>
+                          <td className="p-2">
+                            {s && (
+                              <Tag tone={s.points.length ? "primary" : "muted"}>
+                                {s.points.length ? `${s.points.length} keyframes` : "static"}
+                              </Tag>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <Tag
+                              tone={
+                                d.status === "unresolved"
+                                  ? "destructive"
+                                  : d.guessed
+                                    ? "accent"
+                                    : "primary"
+                              }
+                            >
+                              {statusLabel(d)}
+                            </Tag>
+                          </td>
+                          <td
+                            title={d.detail}
+                            className="max-w-[220px] truncate p-2 text-muted-foreground"
+                          >
+                            {d.detail}
                           </td>
                         </tr>
-                      )}
-                    </Fragment>
-                  ))}
+                        {expanded === d.trackIndex && (
+                          <tr className="border-t border-border bg-secondary/30">
+                            <td colSpan={8} className="p-2">
+                              <ol className="space-y-1">
+                                {d.steps.map((step, i) => (
+                                  <li key={i} className="flex items-center gap-2">
+                                    {step.ok ? (
+                                      <CircleCheck className="size-3 text-primary" />
+                                    ) : (
+                                      <CircleX className="size-3 text-destructive" />
+                                    )}
+                                    <span className="text-muted-foreground">{step.label}</span>
+                                    <span>{step.value}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                              <p className="mt-2 text-[11px] text-muted-foreground">
+                                UID {d.uid}
+                              </p>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -164,6 +244,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
               Click a row to see how the app followed that track's references.
             </p>
           </div>
+
 
           {/* Chunk map */}
           <div>

@@ -107,9 +107,21 @@ async function render(req: WorkerRequest) {
     frameCount: totalFrames,
   });
   let bytesWritten = 0;
+  // Even when the output streams straight to disk we keep a copy while it fits
+  // in memory: a handle from showSaveFilePicker grants write access only, so
+  // reading the file back for the binaural audition is not permitted.
+  const CACHE_LIMIT = 512 * 1024 * 1024;
+  let cached = true;
   const write = async (chunk: Uint8Array<ArrayBuffer>) => {
-    if (writable) await writable.write(chunk);
-    else blobParts.push(new Uint8Array(chunk).buffer);
+    if (writable) {
+      await writable.write(chunk);
+      if (cached && bytesWritten + chunk.byteLength <= CACHE_LIMIT) {
+        blobParts.push(new Uint8Array(chunk).buffer);
+      } else {
+        cached = false;
+        blobParts.length = 0;
+      }
+    } else blobParts.push(new Uint8Array(chunk).buffer);
     bytesWritten += chunk.byteLength;
   };
   await write(header);
@@ -211,7 +223,12 @@ async function render(req: WorkerRequest) {
 
   if (writable) {
     await writable.close();
-    post({ type: "done", blob: null, bytesWritten, elapsedMs: performance.now() - started });
+    post({
+      type: "done",
+      blob: cached ? new Blob(blobParts, { type: "audio/wav" }) : null,
+      bytesWritten,
+      elapsedMs: performance.now() - started,
+    });
   } else {
     post({
       type: "done",
