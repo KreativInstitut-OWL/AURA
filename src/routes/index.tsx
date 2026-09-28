@@ -1,29 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
-  AudioWaveform,
   Boxes,
   CircleCheck,
-  CircleX,
   Download,
   FileAudio,
-  Globe,
+  Layers,
   Play,
+  Radio,
   Square,
   TriangleAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { BinauralDeck, type PreviewAudio } from "@/components/adm/BinauralDeck";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { MetadataInspector } from "@/components/adm/MetadataInspector";
 import { Meters } from "@/components/adm/Meters";
 import { SpatialViewer } from "@/components/adm/SpatialViewer";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
 import { analyseAdm, BED_ORDER, BED_PROFILES } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
-import { channelCount, rad2deg, verifyBasis } from "@/engine/sh";
+import {
+  PREVIEW_MAX_SECONDS,
+  previewOrderFor,
+  type PreviewRequest,
+  type PreviewResponse,
+} from "@/engine/preview-types";
+import { channelCount, rad2deg } from "@/engine/sh";
 import type {
   AnalysisResult,
   BedProfile,
@@ -36,27 +40,34 @@ import type {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ADM → Ambisonics Direct Renderer" },
+      { title: "AURA — Atmos Universal Renderer into Ambisonics" },
       {
         name: "description",
         content:
-          "Render Dolby Atmos ADM BWF/RF64 masters straight into 3rd, 5th or 7th order AmbiX (ACN/SN3D) in the browser — no virtual loudspeaker stage.",
+          "AURA inspects Dolby Atmos ADM masters and renders them straight into 3rd, 5th or 7th order AmbiX, with binaural audition before download.",
       },
-      { property: "og:title", content: "ADM → Ambisonics Direct Renderer" },
+      { property: "og:title", content: "AURA — Atmos Universal Renderer into Ambisonics" },
       {
         property: "og:description",
         content:
-          "Object-level spherical harmonic encoding of Atmos beds and objects to 16/36/64-channel AmbiX, streamed entirely client-side.",
+          "Stream map, spatial monitoring and AmbiX export with in-browser binaural audition — entirely client-side.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: Index,
+  component: Workstation,
 });
 
 const ORDERS = [3, 5, 7] as const;
 type Order = (typeof ORDERS)[number];
+
+const LFE_MODES: [LfeMode, string, string][] = [
+  ["inject", "−3 dB", "standard W injection"],
+  ["inject0", "0 dB", "unity"],
+  ["inject10", "+10 dB", "Dolby sub calibration"],
+  ["exclude", "Off", "LFE excluded"],
+];
 
 const fmtBytes = (b: number) => {
   if (b < 1024) return `${b} B`;
@@ -73,26 +84,74 @@ const fmtBytes = (b: number) => {
 const fmtTime = (s: number) => {
   if (!Number.isFinite(s) || s < 0) return "--:--";
   const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+  return `${m}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
 };
 
-const PROFILES: { id: BedProfile; label: string; blurb: string }[] = [
-  { id: "dolby", label: "Dolby mode", blurb: "Atmos studio reference · sides ±100° · tops ±90°/+45°" },
-  { id: "itu", label: "ITU mode", blurb: "BS.2051 / BS.2094 nominal · sides ±90° · tops ±90°/+30°" },
-];
+function Panel({
+  title,
+  icon,
+  right,
+  children,
+  className = "",
+}: {
+  title: string;
+  icon?: ReactNode;
+  right?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={`rounded-xl border border-border bg-card/60 ${className}`}>
+      <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+        <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {icon}
+          {title}
+        </h2>
+        {right}
+      </header>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
 
-function Index() {
+function Pill({
+  active,
+  onClick,
+  disabled,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded-full border px-3 py-1.5 text-xs transition-colors disabled:opacity-40 ${
+        active
+          ? "border-foreground bg-foreground text-background"
+          : "border-border text-muted-foreground hover:bg-secondary"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Workstation() {
   const [file, setFile] = useState<File | null>(null);
   const [container, setContainer] = useState<ContainerInfo | null>(null);
   const [profile, setProfile] = useState<BedProfile>("dolby");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+
   const [order, setOrder] = useState<Order>(3);
   const [lfeMode, setLfeMode] = useState<LfeMode>("inject");
   const [gainDb, setGainDb] = useState(0);
-  const [dragging, setDragging] = useState(false);
 
   const [rendering, setRendering] = useState(false);
   const [framesDone, setFramesDone] = useState(0);
@@ -102,13 +161,23 @@ function Index() {
   const [result, setResult] = useState<{ url: string; name: string } | null>(null);
   const [playhead, setPlayhead] = useState(0);
 
+  const [preview, setPreview] = useState<PreviewAudio | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewPct, setPreviewPct] = useState(0);
+
   const workerRef = useRef<Worker | null>(null);
-  const selfTest = useMemo(() => verifyBasis(), []);
+  const previewWorkerRef = useRef<Worker | null>(null);
   const outChannels = channelCount(order);
 
-  useEffect(() => () => workerRef.current?.terminate(), []);
+  useEffect(
+    () => () => {
+      workerRef.current?.terminate();
+      previewWorkerRef.current?.terminate();
+    },
+    [],
+  );
 
-  // Idle trajectory animation when not rendering
+  // Idle trajectory animation
   useEffect(() => {
     if (!analysis || rendering) return;
     let raf = 0;
@@ -116,8 +185,8 @@ function Index() {
     const rate = analysis.container.format.sampleRate;
     const t0 = performance.now();
     const tick = () => {
-      const elapsedSec = (performance.now() - t0) / 1000;
-      setPlayhead(total > 0 ? ((elapsedSec * rate * 4) % total) : 0);
+      const s = (performance.now() - t0) / 1000;
+      setPlayhead(total > 0 ? (s * rate * 4) % total : 0);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -130,6 +199,7 @@ function Index() {
       setAnalysis(null);
       setContainer(null);
       setResult(null);
+      setPreview(null);
       setFile(f);
       setAnalysing(true);
       try {
@@ -145,7 +215,6 @@ function Index() {
     [profile],
   );
 
-  // Re-resolve bed positions instantly when the reference profile changes.
   useEffect(() => {
     if (!container) return;
     try {
@@ -178,8 +247,6 @@ function Index() {
           types: [{ description: "WAV / RF64", accept: { "audio/wav": [".wav"] } }],
         });
       } catch (e) {
-        // User cancelled the save dialog -> abort. Any other failure (e.g. no
-        // user-gesture permission) falls back to the chunked blob download.
         if (e instanceof DOMException && e.name === "AbortError") return;
         handle = null;
       }
@@ -208,8 +275,7 @@ function Index() {
         setRendering(false);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
-        if (msg.blob) setResult({ url: URL.createObjectURL(msg.blob), name: outName });
-        else setResult({ url: "", name: outName });
+        setResult({ url: msg.blob ? URL.createObjectURL(msg.blob) : "", name: outName });
         worker.terminate();
         workerRef.current = null;
       } else {
@@ -244,409 +310,474 @@ function Index() {
     setRendering(false);
   };
 
+  const buildPreview = useCallback(() => {
+    if (!file || !analysis) return;
+    previewWorkerRef.current?.terminate();
+    setPreview(null);
+    setPreviewPct(0);
+    setPreviewing(true);
+
+    const worker = new Worker(new URL("../engine/preview.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    previewWorkerRef.current = worker;
+    const previewOrder = previewOrderFor(order);
+    const rate = analysis.container.format.sampleRate;
+
+    worker.onerror = (ev) => {
+      setError(`Preview failed: ${ev.message || "unknown error"}`);
+      setPreviewing(false);
+    };
+
+    worker.onmessage = (ev: MessageEvent<PreviewResponse>) => {
+      const msg = ev.data;
+      if (msg.type === "progress") {
+        setPreviewPct(msg.totalFrames > 0 ? (msg.framesDone / msg.totalFrames) * 100 : 0);
+      } else if (msg.type === "done") {
+        setPreview({
+          channels: msg.channels,
+          sampleRate: msg.sampleRate,
+          frameCount: msg.frameCount,
+          order: msg.order,
+          renderOrder: order,
+          truncated: msg.truncated,
+          startSec: 0,
+        });
+        setPreviewing(false);
+        worker.terminate();
+        previewWorkerRef.current = null;
+      } else {
+        setError(msg.message);
+        setPreviewing(false);
+        worker.terminate();
+        previewWorkerRef.current = null;
+      }
+    };
+
+    const req: PreviewRequest = {
+      type: "preview",
+      file,
+      sources: analysis.sources,
+      container: {
+        dataOffset: analysis.container.dataOffset,
+        frameCount: analysis.container.frameCount,
+        blockAlign: analysis.container.format.blockAlign,
+        bitsPerSample: analysis.container.format.bitsPerSample,
+        channels: analysis.container.format.channels,
+        sampleRate: rate,
+      },
+      order: previewOrder,
+      lfeMode,
+      masterGain: Math.pow(10, gainDb / 20),
+      startSample: 0,
+      maxFrames: Math.round(PREVIEW_MAX_SECONDS * rate),
+    };
+    worker.postMessage(req);
+  }, [analysis, file, gainDb, lfeMode, order]);
+
   const total = analysis?.container.frameCount ?? 0;
   const pct = total > 0 ? (framesDone / total) * 100 : 0;
   const speed = elapsed > 0 ? framesDone / (elapsed / 1000) : 0;
   const eta = speed > 0 ? (total - framesDone) / speed : NaN;
-  const beds = analysis?.sources.filter((s) => s.kind === "bed") ?? [];
-  const objects = analysis?.sources.filter((s) => s.kind === "object") ?? [];
+  const beds = useMemo(() => analysis?.sources.filter((s) => s.kind === "bed") ?? [], [analysis]);
+  const objects = useMemo(
+    () => analysis?.sources.filter((s) => s.kind === "object") ?? [],
+    [analysis],
+  );
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-10">
-      <header className="mb-8">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-            <Globe className="size-3 text-primary" /> ACN · SN3D · AmbiX
-          </div>
-          <div className="inline-flex rounded-full border border-border bg-card/60 p-0.5">
-            <span className="rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground">
-              v1 Classic
+    <div className="v2-theme min-h-screen">
+      {/* Top bar */}
+      <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+          <div className="flex items-center gap-2">
+            <Radio className="size-4 text-[var(--v2-valid)]" />
+            <span className="text-sm font-semibold tracking-tight">AURA</span>
+            <span className="hidden text-[11px] text-muted-foreground sm:inline">
+              Atmos Universal Renderer into Ambisonics
             </span>
-            <Link
-              to="/v2"
-              className="rounded-full px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              v2 Workstation →
-            </Link>
+            <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+              ACN · SN3D · AmbiX
+            </span>
           </div>
-        </div>
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          ADM <span className="text-primary">→</span> Ambisonics Direct Renderer
-        </h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Dolby Atmos ADM masters encoded straight into higher-order Ambisonics. Every bed channel
-          and every object is encoded from its own coordinates — no virtual loudspeaker stage, no
-          phantom-source blur. Everything runs in this browser tab.
-        </p>
 
-        {/* Global bed reference profile */}
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-lg border border-border bg-card p-1">
-            {PROFILES.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setProfile(p.id)}
-                disabled={rendering}
-                className={`rounded-md px-4 py-2 text-left text-sm transition-colors disabled:opacity-50 ${
-                  profile === p.id
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:bg-secondary"
-                }`}
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
+            <div className="inline-flex rounded-full border border-border p-0.5">
+              <span className="rounded-full bg-foreground px-3 py-1 text-[11px] font-semibold text-background">
+                Workstation
+              </span>
+              <Link
+                to="/classic"
+                className="rounded-full px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
               >
-                <span className="block font-semibold">{p.label}</span>
-                <span className="block font-mono text-[10px]">{p.blurb}</span>
-              </button>
-            ))}
+                Classic
+              </Link>
+            </div>
+            <div className="inline-flex rounded-full border border-border p-0.5">
+              {(["dolby", "itu"] as BedProfile[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setProfile(p)}
+                  disabled={rendering}
+                  className={`rounded-full px-3 py-1 text-[11px] transition-colors disabled:opacity-40 ${
+                    profile === p
+                      ? "bg-foreground font-semibold text-background"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {p === "dolby" ? "Dolby mode" : "ITU mode"}
+                </button>
+              ))}
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Bed speaker angles follow the selected reference. Explicit coordinates written in the
-            file always win over both.
-          </p>
-        </div>
-
-        <div className="mt-3 overflow-x-auto">
-          <table className="font-mono text-[11px] text-muted-foreground">
-            <tbody>
-              <tr>
-                <td className="pr-3 text-foreground">Bed</td>
-                {BED_ORDER.map((r) => (
-                  <td key={r} className="px-2 text-foreground">
-                    {r}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td className="pr-3">Az / El</td>
-                {BED_ORDER.map((r) => {
-                  const g = BED_PROFILES[profile][r]!;
-                  return (
-                    <td key={r} className="px-2 whitespace-nowrap">
-                      {r === "LFE" ? "Omni (W)" : `${g.az}° / ${g.el}°`}
-                    </td>
-                  );
-                })}
-              </tr>
-            </tbody>
-          </table>
         </div>
       </header>
 
-      {/* Dropzone */}
-      <Card
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          const f = e.dataTransfer.files[0];
-          if (f) void loadFile(f);
-        }}
-        className={`border-2 border-dashed p-8 text-center transition-colors ${
-          dragging ? "border-primary bg-primary/5" : "border-border"
-        }`}
-      >
-        <FileAudio className="mx-auto size-8 text-primary" />
-        <p className="mt-3 font-medium">Drop a BWF / RF64 Atmos ADM master here</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Multi-gigabyte files are fine — they are read in slices, never loaded whole.
-        </p>
-        <label className="mt-4 inline-block">
-          <input
-            type="file"
-            accept=".wav,.bwf,.rf64,audio/wav"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void loadFile(f);
-            }}
-          />
-          <span className="inline-flex cursor-pointer items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            Choose file
-          </span>
-        </label>
-        {file && (
-          <p className="mt-4 font-mono text-xs text-muted-foreground">
-            {file.name} · {fmtBytes(file.size)}
-          </p>
-        )}
-      </Card>
-
-      {analysing && (
-        <p className="mt-4 animate-pulse text-sm text-muted-foreground">Scanning container…</p>
-      )}
       {error && (
-        <Card className="mt-4 border-destructive/50 p-4 text-sm text-destructive">
+        <div className="mx-5 mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           <TriangleAlert className="mr-2 inline size-4" />
           {error}
-        </Card>
+        </div>
       )}
 
-      {analysis && (
-        <>
-          {/* Container analysis */}
-          <div className="mt-6 grid gap-4 md:grid-cols-4">
-            <Stat label="Container" value={analysis.container.isRF64 ? "RF64 + ds64" : "RIFF"} />
-            <Stat
-              label="Format"
-              value={`${analysis.container.format.channels} ch · ${analysis.container.format.bitsPerSample}-bit · ${(analysis.container.format.sampleRate / 1000).toFixed(1)} kHz`}
-            />
-            <Stat label="Duration" value={fmtTime(analysis.container.durationSec)} />
-            <Stat
-              label="ADM streams"
-              value={`${beds.length} bed · ${objects.length} objects`}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-            {/* Viewer */}
-            <Card className="p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Boxes className="size-4 text-primary" /> Spatial trajectories
-                </h2>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {fmtTime(playhead / analysis.container.format.sampleRate)} /{" "}
-                  {fmtTime(analysis.container.durationSec)}
-                </span>
-              </div>
-              <SpatialViewer
-                sources={analysis.sources}
-                frameCount={analysis.container.frameCount}
-                sampleRate={analysis.container.format.sampleRate}
-                playheadSample={playhead}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                Squares are 7.1.2 bed anchors, amber dots are objects on their interpolated paths.
-                Drag to rotate.
+      <div className="grid gap-4 p-5 xl:grid-cols-[340px_minmax(0,1fr)_360px]">
+        {/* ─────────── COLUMN 1 · INPUT ─────────── */}
+        <div className="space-y-4">
+          <Panel title="Source" icon={<FileAudio className="size-3.5" />}>
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                const f = e.dataTransfer.files[0];
+                if (f) void loadFile(f);
+              }}
+              className={`rounded-lg border-2 border-dashed p-5 text-center transition-colors ${
+                dragging ? "border-[var(--v2-valid)] bg-[var(--v2-valid)]/5" : "border-border"
+              }`}
+            >
+              <p className="text-sm font-medium">Drop a BWF / RF64 ADM master</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Read in slices — multi-gigabyte files are fine.
               </p>
-            </Card>
-
-            {/* Controls */}
-            <Card className="space-y-5 p-4">
-              <div>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Ambisonic order
-                </h2>
-                <div className="grid grid-cols-3 gap-2">
-                  {ORDERS.map((o) => (
-                    <button
-                      key={o}
-                      onClick={() => setOrder(o)}
-                      disabled={rendering}
-                      className={`rounded-md border px-3 py-2 text-sm transition-colors ${
-                        order === o
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border hover:bg-secondary"
-                      }`}
-                    >
-                      <span className="block font-semibold">{o === 3 ? "3rd" : `${o}th`}</span>
-                      <span className="block font-mono text-[11px] text-muted-foreground">
-                        {channelCount(o)} ch
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  LFE routing
-                </h2>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      ["inject", "Inject to W (-3 dB)"],
-                      ["inject0", "Inject to W (0 dB)"],
-                      ["inject10", "Inject to W (+10 dB)"],
-                      ["exclude", "Exclude LFE"],
-                    ] as [LfeMode, string][]
-                  ).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      onClick={() => setLfeMode(mode)}
-                      disabled={rendering}
-                      className={`rounded-md border px-3 py-2 text-xs transition-colors ${
-                        lfeMode === mode
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border hover:bg-secondary"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN
-                  0 (W) only, never encoded to a direction. +10 dB matches the Dolby subwoofer
-                  in-room calibration offset.
-                </p>
-              </div>
-
-
-              <div>
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-                    Master gain
-                  </span>
-                  <span className="font-mono text-xs">{gainDb.toFixed(1)} dB</span>
-                </div>
-                <Slider
-                  value={[gainDb]}
-                  min={-24}
-                  max={6}
-                  step={0.5}
-                  disabled={rendering}
-                  onValueChange={(v) => setGainDb(v[0] ?? 0)}
+              <label className="mt-3 inline-block">
+                <input
+                  type="file"
+                  accept=".wav,.bwf,.rf64,audio/wav"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void loadFile(f);
+                  }}
                 />
-              </div>
-
-              <div className="flex gap-2">
-                {!rendering ? (
-                  <Button className="flex-1" onClick={() => void startRender()}>
-                    <Play className="size-4" /> Render {outChannels}-ch AmbiX
-                  </Button>
-                ) : (
-                  <Button className="flex-1" variant="destructive" onClick={stopRender}>
-                    <Square className="size-4" /> Stop
-                  </Button>
-                )}
-              </div>
-              {result && (
-                <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm">
-                  <CircleCheck className="mr-2 inline size-4 text-primary" />
-                  Rendered {fmtBytes(bytesWritten)} in {(elapsed / 1000).toFixed(1)} s.
-                  {result.url ? (
-                    <a
-                      href={result.url}
-                      download={result.name}
-                      className="mt-2 flex items-center gap-2 font-mono text-xs text-primary underline"
-                    >
-                      <Download className="size-3" /> {result.name}
-                    </a>
-                  ) : (
-                    <p className="mt-1 font-mono text-xs text-muted-foreground">
-                      Written straight to disk: {result.name}
-                    </p>
-                  )}
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Render progress + meters */}
-          <Card className="mt-4 p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                <Activity className="size-4 text-primary" /> Streaming render
-              </h2>
-              <div className="flex gap-4 font-mono text-xs text-muted-foreground">
-                <span>{pct.toFixed(1)}%</span>
-                <span>{fmtBytes(bytesWritten)} written</span>
-                <span>{(speed / (analysis.container.format.sampleRate || 1)).toFixed(1)}× realtime</span>
-                <span>ETA {fmtTime(eta)}</span>
-              </div>
+                <span className="inline-flex cursor-pointer items-center rounded-full bg-foreground px-4 py-1.5 text-xs font-semibold text-background hover:opacity-90">
+                  Choose file
+                </span>
+              </label>
             </div>
-            <Progress value={pct} />
-            <div className="mt-4">
-              <Meters peaks={peaks} channels={outChannels} />
-            </div>
-          </Card>
 
-          {/* Stream table */}
-          <Card className="mt-4 p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              <AudioWaveform className="size-4 text-primary" /> ADM stream map
-            </h2>
-            <div className="max-h-72 overflow-auto rounded-md border border-border">
-              <table className="w-full font-mono text-xs">
-                <thead className="sticky top-0 bg-secondary text-muted-foreground">
-                  <tr>
-                    <th className="p-2 text-left">Trk</th>
-                    <th className="p-2 text-left">Name</th>
-                    <th className="p-2 text-left">Type</th>
-                    <th className="p-2 text-left">UID</th>
-                    <th className="p-2 text-right">Az</th>
-                    <th className="p-2 text-right">El</th>
-                    <th className="p-2 text-right">Keyframes</th>
-                  </tr>
-                </thead>
+            {analysing && (
+              <p className="mt-3 animate-pulse text-xs text-muted-foreground">
+                Scanning container…
+              </p>
+            )}
+
+            {analysis && (
+              <dl className="mt-4 space-y-1.5 font-mono text-[11px]">
+                <Row k="File" v={file?.name ?? "—"} />
+                <Row k="Size" v={file ? fmtBytes(file.size) : "—"} />
+                <Row
+                  k="Container"
+                  v={analysis.container.isRF64 ? "RF64 + ds64" : "RIFF"}
+                />
+                <Row
+                  k="Format"
+                  v={`${analysis.container.format.channels} ch · ${analysis.container.format.bitsPerSample}-bit · ${(analysis.container.format.sampleRate / 1000).toFixed(1)} kHz`}
+                />
+                <Row k="Duration" v={fmtTime(analysis.container.durationSec)} />
+                <Row k="Streams" v={`${beds.length} bed · ${objects.length} objects`} />
+                {analysis.programmeName && <Row k="Programme" v={analysis.programmeName} />}
+              </dl>
+            )}
+          </Panel>
+
+          <Panel title="7.1.2 bed reference" icon={<Layers className="size-3.5" />}>
+            <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+              A Dolby Atmos bed is at most 7.1.2 — these ten channels. Wide and the remaining
+              height positions arrive as dynamic objects and are placed from their own
+              coordinates. Explicit coordinates in the file always win over this table.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full font-mono text-[10px]">
                 <tbody>
-                  {analysis.sources.map((s) => (
-                    <tr key={s.channelIndex} className="border-t border-border">
-                      <td className="p-2">{s.channelIndex + 1}</td>
-                      <td className="p-2">{s.name}</td>
-                      <td className="p-2">
-                        <span
-                          className={s.kind === "bed" ? "text-primary" : "text-accent"}
-                        >
-                          {s.isLFE ? "LFE (Omni → W)" : s.kind === "bed" ? "DirectSpeakers" : "Object"}
-                        </span>
-                      </td>
-                      <td className="p-2 text-muted-foreground">{s.uid}</td>
-                      <td className="p-2 text-right">
-                        {s.isLFE ? "Omni" : `${rad2deg(s.azimuth).toFixed(1)}°`}
-                      </td>
-                      <td className="p-2 text-right">
-                        {s.isLFE ? "W ch" : `${rad2deg(s.elevation).toFixed(1)}°`}
-                      </td>
-                      <td className="p-2 text-right">{s.points.length || "static"}</td>
-                    </tr>
-                  ))}
+                  {BED_ORDER.map((r) => {
+                    const g = BED_PROFILES[profile][r]!;
+                    return (
+                      <tr key={r} className="border-b border-border/60 last:border-0">
+                        <td className="py-1 pr-2 text-foreground">{r}</td>
+                        <td className="py-1 text-right text-muted-foreground">
+                          {r === "LFE" ? "omni → W" : `${g.az}° / ${g.el}°`}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            {analysis.warnings.length > 0 && (
-              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-                {analysis.warnings.map((w, i) => (
-                  <li key={i}>
-                    <TriangleAlert className="mr-1 inline size-3 text-accent" />
-                    {w}
-                  </li>
+          </Panel>
+
+          {analysis && (
+            <Panel title="ADM stream map" icon={<Activity className="size-3.5" />}>
+              <div className="max-h-[460px] space-y-1.5 overflow-auto pr-1">
+                {analysis.sources.map((s) => (
+                  <div
+                    key={s.channelIndex}
+                    className="rounded-lg border border-border bg-background/40 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-mono text-[11px]">
+                        <span className="text-muted-foreground">
+                          {String(s.channelIndex + 1).padStart(2, "0")}
+                        </span>{" "}
+                        {s.name}
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase ${
+                          s.isLFE
+                            ? "border-accent/40 bg-accent/10 text-accent"
+                            : s.kind === "bed"
+                              ? "border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 text-[var(--v2-valid)]"
+                              : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {s.isLFE ? "LFE" : s.kind === "bed" ? "bed" : "object"}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex gap-3 font-mono text-[10px] text-muted-foreground">
+                      <span>
+                        {s.isLFE ? "omni → W" : `az ${rad2deg(s.azimuth).toFixed(1)}°`}
+                      </span>
+                      {!s.isLFE && <span>el {rad2deg(s.elevation).toFixed(1)}°</span>}
+                      <span className="ml-auto">
+                        {s.points.length ? `${s.points.length} keyframes` : "static"}
+                      </span>
+                    </div>
+                  </div>
                 ))}
-              </ul>
-            )}
-          </Card>
-
-          <MetadataInspector analysis={analysis} />
-        </>
-      )}
-
-      {/* Math self-test */}
-      <Card className="mt-6 p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Spherical harmonic self-test (ACN / SN3D)
-        </h2>
-        <ul className="space-y-1 text-xs">
-          {selfTest.map((t) => (
-            <li key={t.name} className="flex items-center gap-2">
-              {t.ok ? (
-                <CircleCheck className="size-3.5 text-primary" />
-              ) : (
-                <CircleX className="size-3.5 text-destructive" />
+              </div>
+              {analysis.warnings.length > 0 && (
+                <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground">
+                  {analysis.warnings.map((w, i) => (
+                    <li key={i}>
+                      <TriangleAlert className="mr-1 inline size-3 text-accent" />
+                      {w}
+                    </li>
+                  ))}
+                </ul>
               )}
-              <span>{t.name}</span>
-              <span className="font-mono text-muted-foreground">— {t.detail}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+            </Panel>
+          )}
+        </div>
 
-      <footer className="mt-8 text-center text-xs text-muted-foreground">
+        {/* ─────────── COLUMN 2 · MONITORING ─────────── */}
+        <div className="space-y-4">
+          <Panel
+            title="Spatial trajectories"
+            icon={<Boxes className="size-3.5" />}
+            right={
+              analysis ? (
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {fmtTime(playhead / analysis.container.format.sampleRate)} /{" "}
+                  {fmtTime(analysis.container.durationSec)}
+                </span>
+              ) : null
+            }
+          >
+            {analysis ? (
+              <>
+                <SpatialViewer
+                  sources={analysis.sources}
+                  frameCount={analysis.container.frameCount}
+                  sampleRate={analysis.container.format.sampleRate}
+                  playheadSample={playhead}
+                />
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Squares are bed anchors, dots are objects on their interpolated paths. Drag to
+                  rotate.
+                </p>
+              </>
+            ) : (
+              <Empty label="Load an ADM master to see bed anchors and object trajectories." />
+            )}
+          </Panel>
+
+          <Panel
+            title="Output meters"
+            icon={<Activity className="size-3.5" />}
+            right={
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {outChannels} ACN channels
+              </span>
+            }
+          >
+            <Meters peaks={peaks} channels={outChannels} />
+          </Panel>
+
+          {analysis && <MetadataInspector analysis={analysis} />}
+          {!analysis && (
+            <Panel title="Metadata inspector">
+              <Empty label="Chunk map, reference chains and raw axml appear here after loading." />
+            </Panel>
+          )}
+        </div>
+
+        {/* ─────────── COLUMN 3 · OUTPUT ─────────── */}
+        <div className="space-y-4">
+          <Panel title="Ambisonic order" icon={<Layers className="size-3.5" />}>
+            <div className="grid grid-cols-3 gap-2">
+              {ORDERS.map((o) => (
+                <button
+                  key={o}
+                  onClick={() => setOrder(o)}
+                  disabled={rendering}
+                  className={`rounded-lg border px-2 py-2.5 transition-colors disabled:opacity-40 ${
+                    order === o
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border hover:bg-secondary"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">{o === 3 ? "3rd" : `${o}th`}</span>
+                  <span className="block font-mono text-[10px] opacity-70">
+                    {channelCount(o)} ch
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="LFE routing">
+            <div className="flex flex-wrap gap-2">
+              {LFE_MODES.map(([mode, label, hint]) => (
+                <Pill
+                  key={mode}
+                  active={lfeMode === mode}
+                  disabled={rendering}
+                  onClick={() => setLfeMode(mode)}
+                >
+                  {label}
+                  <span className="ml-1.5 font-mono text-[9px] opacity-60">{hint}</span>
+                </Pill>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN 0
+              (W) only, never encoded to a direction.
+            </p>
+          </Panel>
+
+          <Panel
+            title="Master gain"
+            right={<span className="font-mono text-[10px]">{gainDb.toFixed(1)} dB</span>}
+          >
+            <input
+              type="range"
+              min={-24}
+              max={6}
+              step={0.5}
+              value={gainDb}
+              disabled={rendering}
+              onChange={(e) => setGainDb(Number(e.target.value))}
+              className="h-1 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-[var(--v2-valid)]"
+            />
+          </Panel>
+
+          <Panel title="Render & export" icon={<Download className="size-3.5" />}>
+            {!rendering ? (
+              <button
+                onClick={() => void startRender()}
+                disabled={!analysis}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                <Play className="size-4" /> Render {outChannels}-ch AmbiX
+              </button>
+            ) : (
+              <button
+                onClick={stopRender}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+              >
+                <Square className="size-4" /> Stop
+              </button>
+            )}
+
+            <div className="mt-3">
+              <Progress value={pct} />
+              <div className="mt-2 flex flex-wrap justify-between gap-2 font-mono text-[10px] text-muted-foreground">
+                <span>{pct.toFixed(1)}%</span>
+                <span>{fmtBytes(bytesWritten)}</span>
+                <span>
+                  {(speed / (analysis?.container.format.sampleRate || 1)).toFixed(1)}× realtime
+                </span>
+                <span>ETA {fmtTime(eta)}</span>
+              </div>
+            </div>
+
+            {result && (
+              <div className="mt-3 rounded-lg border border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 p-3 text-xs">
+                <CircleCheck className="mr-2 inline size-4 text-[var(--v2-valid)]" />
+                Rendered {fmtBytes(bytesWritten)} in {(elapsed / 1000).toFixed(1)} s.
+                {result.url ? (
+                  <a
+                    href={result.url}
+                    download={result.name}
+                    className="mt-2 flex items-center gap-2 font-mono text-[11px] underline"
+                  >
+                    <Download className="size-3" /> {result.name}
+                  </a>
+                ) : (
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                    Written straight to disk: {result.name}
+                  </p>
+                )}
+              </div>
+            )}
+          </Panel>
+
+          <BinauralDeck
+            preview={preview}
+            generating={previewing}
+            progress={previewPct}
+            canGenerate={!!analysis && !rendering}
+            onGenerate={buildPreview}
+          />
+        </div>
+      </div>
+
+      <footer className="border-t border-border px-5 py-6 text-center text-[11px] text-muted-foreground">
         AmbiX output: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN order, SN3D normalization, RF64
-        promotion past 4 GB.
+        promotion past 4 GB. Binaural audition: HOAST SH-HRIR set, IEM Graz.
       </footer>
-    </main>
+    </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Row({ k, v }: { k: string; v: string }) {
   return (
-    <Card className="p-4">
-      <p className="text-[11px] uppercase tracking-widest text-muted-foreground">{label}</p>
-      <p className="mt-1 font-mono text-sm">{value}</p>
-    </Card>
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="shrink-0 text-muted-foreground">{k}</dt>
+      <dd className="truncate text-right">{v}</dd>
+    </div>
+  );
+}
+
+function Empty({ label }: { label: string }) {
+  return (
+    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border px-6 text-center text-[11px] text-muted-foreground">
+      {label}
+    </div>
   );
 }

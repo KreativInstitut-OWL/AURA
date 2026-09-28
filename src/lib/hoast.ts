@@ -16,6 +16,30 @@ export const HOAST_MAX_ORDER = 4;
 
 const IR_BASE = "/hoast-irs/hoast";
 
+/** Band-limited enough for short HRIRs: linear interpolation resampler. */
+function resampleLinear(data: Float32Array, from: number, to: number): Float32Array {
+  if (from === to) return data;
+  const ratio = to / from;
+  const outLen = Math.max(1, Math.round(data.length * ratio));
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const p = i / ratio;
+    const i0 = Math.floor(p);
+    const i1 = Math.min(i0 + 1, data.length - 1);
+    const t = p - i0;
+    out[i] = data[i0]! * (1 - t) + data[i1]! * t;
+  }
+  return out;
+}
+
+/** Safari only recently added the promise form of decodeAudioData. */
+function decodeAudio(ctx: BaseAudioContext, data: ArrayBuffer): Promise<AudioBuffer> {
+  return new Promise((resolve, reject) => {
+    const maybe = ctx.decodeAudioData(data, resolve, reject);
+    if (maybe && typeof maybe.then === "function") maybe.then(resolve, reject);
+  });
+}
+
 const GROUPS: Record<number, string[]> = {
   1: ["_01-04ch"],
   2: ["_01-04ch", "_05-09ch"],
@@ -43,7 +67,7 @@ export async function loadHoastFilters(
     groups.map(async (suffix) => {
       const res = await fetch(`${IR_BASE}_o${order}${suffix}.wav`);
       if (!res.ok) throw new Error(`Could not load binaural filters (${res.status})`);
-      return ctx.decodeAudioData(await res.arrayBuffer());
+      return decodeAudio(ctx, await res.arrayBuffer());
     }),
   );
 
@@ -87,6 +111,11 @@ export class HoastBinauralDecoder {
     this.nCh = (order + 1) * (order + 1);
 
     this.input = ctx.createChannelSplitter(this.nCh);
+    // Safari otherwise down-mixes a 16/25-channel feed before it reaches the
+    // splitter; force the full channel count through untouched.
+    this.input.channelCount = this.nCh;
+    this.input.channelCountMode = "explicit";
+    this.input.channelInterpretation = "discrete";
     this.output = ctx.createChannelMerger(2);
 
     this.gainMid = ctx.createGain();
@@ -117,9 +146,14 @@ export class HoastBinauralDecoder {
 
   /** Install the real HOAST decoding filters. */
   setFilters(filters: HoastFilters) {
+    const target = this.ctx.sampleRate;
     const assign = (i: number, data: Float32Array, rate: number) => {
-      const buf = this.ctx.createBuffer(1, data.length, rate);
-      buf.getChannelData(0).set(data);
+      // Safari follows the spec strictly: a ConvolverNode buffer whose sample
+      // rate differs from the context throws NotSupportedError. The published
+      // HOAST filters are 44.1 kHz, so resample them onto the context rate.
+      const src = rate === target ? data : resampleLinear(data, rate, target);
+      const buf = this.ctx.createBuffer(1, src.length, target);
+      buf.getChannelData(0).set(src);
       this.convolvers[i]!.buffer = buf;
     };
     for (let i = 0; i < 4 && i < this.nCh; i++) {

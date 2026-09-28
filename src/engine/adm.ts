@@ -32,8 +32,8 @@ export const DOLBY_BED_LAYOUT: Record<string, BedGeometry> = {
   R: { az: -30, el: 0, label: "R" },
   C: { az: 0, el: 0, label: "C" },
   LFE: { az: 0, el: -90, label: "LFE" },
-  Lw: { az: 45, el: 0, label: "Lw" },
-  Rw: { az: -45, el: 0, label: "Rw" },
+  Lw: { az: 50, el: 0, label: "Lw" },
+  Rw: { az: -50, el: 0, label: "Rw" },
   Lss: { az: 100, el: 0, label: "Lss" },
   Rss: { az: -100, el: 0, label: "Rss" },
   Lrs: { az: 135, el: 0, label: "Lrs" },
@@ -94,7 +94,25 @@ export const FALLBACK_BED_ORDER = [
   "Rtm",
 ];
 
+/**
+ * A Dolby Atmos bed is at most 7.1.2 — these ten channels. Wide and the
+ * remaining height positions are carried as dynamic objects, not bed channels.
+ */
 export const BED_ORDER = [
+  "L",
+  "R",
+  "C",
+  "LFE",
+  "Lss",
+  "Rss",
+  "Lrs",
+  "Rrs",
+  "Ltm",
+  "Rtm",
+];
+
+/** Every speaker role the engine can resolve (beds + object anchor positions). */
+export const ALL_SPEAKER_ROLES = [
   "L",
   "R",
   "C",

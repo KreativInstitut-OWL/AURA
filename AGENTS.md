@@ -8,3 +8,9 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- `/` renders the AURA workstation (`src/routes/index.tsx`); the older single-column UI lives at `/classic` — keeps the legacy renderer reachable without blocking the default experience.
+- The AURA UI is themed by the `.v2-theme` scope in `src/styles.css`, light by default with a `.dark` class on `<html>` — so the classic page keeps its own palette.
+- HOAST HRIR filters are resampled to the AudioContext rate before being assigned to a ConvolverNode — Safari throws NotSupportedError on a rate mismatch.
