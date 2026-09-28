@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { BinauralDeck, type PreviewAudio } from "@/components/adm/BinauralDeck";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { MetadataInspector } from "@/components/adm/MetadataInspector";
 import { Meters } from "@/components/adm/Meters";
 import { SpatialViewer } from "@/components/adm/SpatialViewer";
@@ -391,22 +392,26 @@ function Workstation() {
         <div className="flex flex-wrap items-center gap-3 px-5 py-3">
           <div className="flex items-center gap-2">
             <Radio className="size-4 text-[var(--v2-valid)]" />
-            <span className="text-sm font-semibold tracking-tight">ADM → HOA Workstation</span>
+            <span className="text-sm font-semibold tracking-tight">AURA</span>
+            <span className="hidden text-[11px] text-muted-foreground sm:inline">
+              Atmos Universal Renderer into Ambisonics
+            </span>
             <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
               ACN · SN3D · AmbiX
             </span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             <div className="inline-flex rounded-full border border-border p-0.5">
               <span className="rounded-full bg-foreground px-3 py-1 text-[11px] font-semibold text-background">
-                v2 Workstation
+                Workstation
               </span>
               <Link
-                to="/"
+                to="/classic"
                 className="rounded-full px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
               >
-                v1 Classic
+                Classic
               </Link>
             </div>
             <div className="inline-flex rounded-full border border-border p-0.5">

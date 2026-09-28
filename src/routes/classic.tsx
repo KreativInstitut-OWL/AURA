@@ -260,13 +260,13 @@ function Index() {
           </div>
           <div className="inline-flex rounded-full border border-border bg-card/60 p-0.5">
             <span className="rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground">
-              v1 Classic
+              Classic
             </span>
             <Link
-              to="/v2"
+              to="/"
               className="rounded-full px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
             >
-              v2 Workstation →
+              AURA Workstation →
             </Link>
           </div>
         </div>
