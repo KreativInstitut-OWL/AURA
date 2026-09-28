@@ -2,12 +2,31 @@ import { ChevronDown, ChevronRight, CircleCheck, CircleX, Copy, Search } from "l
 import { Fragment, useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/card";
+import { rad2deg } from "@/engine/sh";
 import type { AnalysisResult, TrackDiagnostic } from "@/engine/types";
 
-function statusColor(d: TrackDiagnostic) {
-  if (d.status === "unresolved") return "text-destructive";
-  if (d.guessed) return "text-accent";
-  return "text-primary";
+const TAG_TONES = {
+  valid: "border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 text-[var(--v2-valid)]",
+  accent: "border-accent/40 bg-accent/10 text-accent",
+  primary: "border-primary/40 bg-primary/10 text-primary",
+  destructive: "border-destructive/50 bg-destructive/10 text-destructive",
+  muted: "border-border text-muted-foreground",
+} as const;
+
+function Tag({
+  tone,
+  children,
+}: {
+  tone: keyof typeof TAG_TONES;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase ${TAG_TONES[tone]}`}
+    >
+      {children}
+    </span>
+  );
 }
 
 function statusLabel(d: TrackDiagnostic) {
