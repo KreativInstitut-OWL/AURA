@@ -5,7 +5,7 @@ import {
   isCommonId,
   type CommonChannel,
 } from "./common-definitions";
-import { deg2rad, roomCartesianToPolar } from "./sh";
+import { cartesianToPolar, deg2rad, roomCartesianToPolar } from "./sh";
 import type {
   AnalysisResult,
   BedProfile,
@@ -294,7 +294,7 @@ interface ChannelFormatModel {
   }[];
 }
 
-function parseBlock(block: Element) {
+function parseBlock(block: Element, profile: BedProfile) {
   const cartesianFlag = text(child(block, "cartesian")) === "1";
   let az = 0;
   let el = 0;
@@ -322,15 +322,16 @@ function parseBlock(block: Element) {
     dist = Number.isFinite(d) && d > 0 ? d : 1;
     positionSource = "polar";
   } else if (hasCart) {
-    // Dolby room-box coordinates: aspect-corrected azimuth, perimeter elevation.
-    const polar = roomCartesianToPolar(
-      byCoord['X'] ?? 0,
-      byCoord['Y'] ?? 0,
-      byCoord['Z'] ?? 0,
-    );
+    // Dolby mode: room-box warp (aspect-corrected azimuth, perimeter elevation).
+    // ITU mode: plain geometric conversion, no stretch factors.
+    const x = byCoord['X'] ?? 0;
+    const y = byCoord['Y'] ?? 0;
+    const z = byCoord['Z'] ?? 0;
+    const polar =
+      profile === "itu" ? cartesianToPolar(x, y, z) : roomCartesianToPolar(x, y, z);
     az = polar.azimuth;
     el = polar.elevation;
-    dist = polar.distance;
+    dist = profile === "itu" ? Math.min(1, polar.distance) || 1 : polar.distance;
     positionSource = "room";
   }
 
@@ -450,7 +451,7 @@ export function analyseAdm(
         : cf.getAttribute("typeDefinition") === "DirectSpeakers"
           ? "0001"
           : "");
-    const blocks = children(cf, "audioBlockFormat").map(parseBlock);
+    const blocks = children(cf, "audioBlockFormat").map((b) => parseBlock(b, profile));
     channelFormats.set(id, {
       id,
       name: cf.getAttribute("audioChannelFormatName") ?? id,
