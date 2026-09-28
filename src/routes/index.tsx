@@ -29,7 +29,7 @@ import {
   type PreviewRequest,
   type PreviewResponse,
 } from "@/engine/preview-types";
-import { channelCount, rad2deg } from "@/engine/sh";
+import { channelCount } from "@/engine/sh";
 
 import type {
   AnalysisResult,
