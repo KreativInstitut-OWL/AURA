@@ -17,7 +17,7 @@ export const HOAST_MAX_ORDER = 4;
 const IR_BASE = "/hoast-irs/hoast";
 
 /** Band-limited enough for short HRIRs: linear interpolation resampler. */
-function resampleLinear(data: Float32Array, from: number, to: number): Float32Array {
+export function resampleLinear(data: Float32Array, from: number, to: number): Float32Array {
   if (from === to) return data;
   const ratio = to / from;
   const outLen = Math.max(1, Math.round(data.length * ratio));
