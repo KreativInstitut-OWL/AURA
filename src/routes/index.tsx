@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   Activity,
   Boxes,
@@ -8,6 +8,7 @@ import {
   Layers,
   Play,
   Radio,
+  ShieldCheck,
   Square,
   TriangleAlert,
 } from "lucide-react";
@@ -15,6 +16,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { BinauralDeck, type PreviewAudio } from "@/components/adm/BinauralDeck";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { PrivacyDialog, usePrivacyDialog } from "@/components/PrivacyDialog";
+import { useLang } from "@/lib/i18n";
 import { ChannelMapEditor } from "@/components/adm/ChannelMapEditor";
 import { MetadataInspector } from "@/components/adm/MetadataInspector";
 import { Meters } from "@/components/adm/Meters";
@@ -69,11 +72,11 @@ const AUDITION_BUDGET_BYTES = 400 * 1024 * 1024;
 
 type Order = (typeof ORDERS)[number];
 
-const LFE_MODES: [LfeMode, string, string][] = [
-  ["inject", "−3 dB", "standard W injection"],
-  ["inject0", "0 dB", "unity"],
-  ["inject10", "+10 dB", "Dolby sub calibration"],
-  ["exclude", "Off", "LFE excluded"],
+const LFE_MODES: [LfeMode, string, string, string, string][] = [
+  ["inject", "−3 dB", "−3 dB", "standard W injection", "Standard-W-Einspeisung"],
+  ["inject0", "0 dB", "0 dB", "unity", "Unity"],
+  ["inject10", "+10 dB", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
+  ["exclude", "Off", "Aus", "LFE excluded", "LFE ausgeschlossen"],
 ];
 
 const fmtBytes = (b: number) => {
@@ -148,6 +151,8 @@ function Pill({
 }
 
 function Workstation() {
+  const { t, lang, setLang } = useLang();
+  const privacy = usePrivacyDialog();
   const [file, setFile] = useState<File | null>(null);
   const [container, setContainer] = useState<ContainerInfo | null>(null);
   const [profile, setProfile] = useState<BedProfile>("dolby");
@@ -504,17 +509,29 @@ function Workstation() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => privacy.setOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ShieldCheck className="size-3.5 text-[var(--v2-valid)]" />
+              {t("Runs locally", "Läuft lokal")}
+            </button>
             <ThemeToggle />
             <div className="inline-flex rounded-full border border-border p-0.5">
-              <span className="rounded-full bg-foreground px-3 py-1 text-[11px] font-semibold text-background">
-                Workstation
-              </span>
-              <Link
-                to="/classic"
-                className="rounded-full px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Classic
-              </Link>
+              {(["de", "en"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] uppercase transition-colors ${
+                    lang === l
+                      ? "bg-foreground font-semibold text-background"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
             </div>
             <div className="inline-flex rounded-full border border-border p-0.5">
               {(["dolby", "itu"] as BedProfile[]).map((p) => (
@@ -528,7 +545,7 @@ function Workstation() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {p === "dolby" ? "Dolby mode" : "ITU mode"}
+                  {p === "dolby" ? t("Dolby mode", "Dolby-Modus") : t("ITU mode", "ITU-Modus")}
                 </button>
               ))}
             </div>
@@ -546,7 +563,7 @@ function Workstation() {
       <div className="grid gap-4 p-5 xl:grid-cols-[340px_minmax(0,1fr)_360px]">
         {/* ─────────── COLUMN 1 · INPUT ─────────── */}
         <div className="space-y-4">
-          <Panel title="Source" icon={<FileAudio className="size-3.5" />}>
+          <Panel title={t("Source", "Quelle")} icon={<FileAudio className="size-3.5" />}>
             <div
               onDragOver={(e) => {
                 e.preventDefault();
@@ -563,9 +580,9 @@ function Workstation() {
                 dragging ? "border-[var(--v2-valid)] bg-[var(--v2-valid)]/5" : "border-border"
               }`}
             >
-              <p className="text-sm font-medium">Drop a BWF / RF64 ADM master</p>
+              <p className="text-sm font-medium">{t("Drop a BWF / RF64 ADM master", "BWF- / RF64-ADM-Master hier ablegen")}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Read in slices — multi-gigabyte files are fine.
+                {t("Read in slices — multi-gigabyte files are fine. Nothing is uploaded.", "Wird stückweise gelesen — auch mehrere Gigabyte sind kein Problem. Nichts wird hochgeladen.")}
               </p>
               <label className="mt-3 inline-block">
                 <input
@@ -578,21 +595,21 @@ function Workstation() {
                   }}
                 />
                 <span className="inline-flex cursor-pointer items-center rounded-full bg-foreground px-4 py-1.5 text-xs font-semibold text-background hover:opacity-90">
-                  Choose file
+                  {t("Choose file", "Datei wählen")}
                 </span>
               </label>
             </div>
 
             {analysing && (
               <p className="mt-3 animate-pulse text-xs text-muted-foreground">
-                Scanning container…
+                {t("Scanning container…", "Container wird gelesen…")}
               </p>
             )}
 
             {analysis && (
               <dl className="mt-4 space-y-1.5 font-mono text-[11px]">
-                <Row k="File" v={file?.name ?? "—"} />
-                <Row k="Size" v={file ? fmtBytes(file.size) : "—"} />
+                <Row k={t("File", "Datei")} v={file?.name ?? "—"} />
+                <Row k={t("Size", "Größe")} v={file ? fmtBytes(file.size) : "—"} />
                 <Row
                   k="Container"
                   v={analysis.container.isRF64 ? "RF64 + ds64" : "RIFF"}
@@ -601,16 +618,16 @@ function Workstation() {
                   k="Format"
                   v={`${analysis.container.format.channels} ch · ${analysis.container.format.bitsPerSample}-bit · ${(analysis.container.format.sampleRate / 1000).toFixed(1)} kHz`}
                 />
-                <Row k="Duration" v={fmtTime(analysis.container.durationSec)} />
-                <Row k="Streams" v={`${beds.length} bed · ${objects.length} objects`} />
-                {analysis.programmeName && <Row k="Programme" v={analysis.programmeName} />}
+                <Row k={t("Duration", "Dauer")} v={fmtTime(analysis.container.durationSec)} />
+                <Row k="Streams" v={`${beds.length} Bed · ${objects.length} ${t("objects", "Objekte")}`} />
+                {analysis.programmeName && <Row k={t("Programme", "Programm")} v={analysis.programmeName} />}
               </dl>
             )}
           </Panel>
 
           {needsChannelMap && channelMap && (
             <Panel
-              title="Channel assignment"
+              title={t("Channel assignment", "Kanalzuordnung")}
               icon={<Layers className="size-3.5" />}
               className="border-accent/60 bg-accent/5"
             >
@@ -631,11 +648,12 @@ function Workstation() {
 
 
 
-          <Panel title="7.1.2 bed reference" icon={<Layers className="size-3.5" />}>
+          <Panel title={t("7.1.2 bed reference", "7.1.2-Bed-Referenz")} icon={<Layers className="size-3.5" />}>
             <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
-              A Dolby Atmos bed is at most 7.1.2 — these ten channels. Wide and the remaining
-              height positions arrive as dynamic objects and are placed from their own
-              coordinates. Explicit coordinates in the file always win over this table.
+              {t(
+                "A Dolby Atmos bed is at most 7.1.2 — these ten channels. Wide and the remaining height positions arrive as dynamic objects and are placed from their own coordinates. Explicit coordinates in the file always win over this table.",
+                "Ein Dolby-Atmos-Bed umfasst höchstens 7.1.2 — diese zehn Kanäle. Wide- und weitere Höhenpositionen kommen als dynamische Objekte und werden nach ihren eigenen Koordinaten platziert. Explizite Koordinaten in der Datei haben immer Vorrang vor dieser Tabelle.",
+              )}
             </p>
             <div className="overflow-x-auto">
               <table className="w-full font-mono text-[10px]">
@@ -657,7 +675,7 @@ function Workstation() {
           </Panel>
 
           {analysis && analysis.warnings.length > 0 && (
-            <Panel title="Warnings" icon={<TriangleAlert className="size-3.5" />}>
+            <Panel title={t("Warnings", "Warnungen")} icon={<TriangleAlert className="size-3.5" />}>
               <ul className="space-y-1 text-[11px] text-muted-foreground">
                 {analysis.warnings.map((w, i) => (
                   <li key={i}>
@@ -673,7 +691,7 @@ function Workstation() {
         {/* ─────────── COLUMN 2 · MONITORING ─────────── */}
         <div className="space-y-4">
           <Panel
-            title="Spatial trajectories"
+            title={t("Spatial trajectories", "Räumliche Bewegungspfade")}
             icon={<Boxes className="size-3.5" />}
             right={
               analysis ? (
@@ -693,21 +711,20 @@ function Workstation() {
                   playheadSample={playhead}
                 />
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  Squares are bed anchors, dots are objects on their interpolated paths. Drag to
-                  rotate.
+                  {t("Squares are bed anchors, dots are objects on their interpolated paths. Drag to rotate.", "Quadrate sind Bed-Anker, Punkte sind Objekte auf ihren interpolierten Pfaden. Zum Drehen ziehen.")}
                 </p>
               </>
             ) : (
-              <Empty label="Load an ADM master to see bed anchors and object trajectories." />
+              <Empty label={t("Load an ADM master to see bed anchors and object trajectories.", "Lade einen ADM-Master, um Bed-Anker und Objektpfade zu sehen.")} />
             )}
           </Panel>
 
           <Panel
-            title="Output meters"
+            title={t("Output meters", "Ausgangspegel")}
             icon={<Activity className="size-3.5" />}
             right={
               <span className="font-mono text-[10px] text-muted-foreground">
-                {outChannels} ACN channels
+                {outChannels} {t("ACN channels", "ACN-Kanäle")}
               </span>
             }
           >
@@ -716,15 +733,15 @@ function Workstation() {
 
           {analysis && <MetadataInspector analysis={analysis} />}
           {!analysis && (
-            <Panel title="Metadata inspector">
-              <Empty label="Chunk map, reference chains and raw axml appear here after loading." />
+            <Panel title={t("Metadata inspector", "Metadaten-Inspektor")}>
+              <Empty label={t("Chunk map, reference chains and raw axml appear here after loading.", "Chunk-Übersicht, Referenzketten und rohes axml erscheinen hier nach dem Laden.")} />
             </Panel>
           )}
         </div>
 
         {/* ─────────── COLUMN 3 · OUTPUT ─────────── */}
         <div className="space-y-4">
-          <Panel title="Ambisonic order" icon={<Layers className="size-3.5" />}>
+          <Panel title={t("Ambisonic order", "Ambisonics-Ordnung")} icon={<Layers className="size-3.5" />}>
             <div className="grid grid-cols-3 gap-2">
               {ORDERS.map((o) => (
                 <button
@@ -737,37 +754,39 @@ function Workstation() {
                       : "border-border hover:bg-secondary"
                   }`}
                 >
-                  <span className="block text-sm font-semibold">{o === 3 ? "3rd" : `${o}th`}</span>
+                  <span className="block text-sm font-semibold">{lang === "de" ? `${o}.` : o === 3 ? "3rd" : `${o}th`}</span>
                   <span className="block font-mono text-[10px] opacity-70">
-                    {channelCount(o)} ch
+                    {channelCount(o)} {t("ch", "Kan.")}
                   </span>
                 </button>
               ))}
             </div>
           </Panel>
 
-          <Panel title="LFE routing">
+          <Panel title={t("LFE routing", "LFE-Routing")}>
             <div className="flex flex-wrap gap-2">
-              {LFE_MODES.map(([mode, label, hint]) => (
+              {LFE_MODES.map(([mode, labelEn, labelDe, hintEn, hintDe]) => (
                 <Pill
                   key={mode}
                   active={lfeMode === mode}
                   disabled={rendering}
                   onClick={() => setLfeMode(mode)}
                 >
-                  {label}
-                  <span className="ml-1.5 font-mono text-[9px] opacity-60">{hint}</span>
+                  {t(labelEn, labelDe)}
+                  <span className="ml-1.5 font-mono text-[9px] opacity-60">{t(hintEn, hintDe)}</span>
                 </Pill>
               ))}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN 0
-              (W) only, never encoded to a direction.
+              {t(
+                "LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN 0 (W) only, never encoded to a direction.",
+                "LFE ist omnidirektional: Ein 120-Hz-Butterworth-Tiefpass 4. Ordnung wird nur in ACN 0 (W) summiert und nie in eine Richtung kodiert.",
+              )}
             </p>
           </Panel>
 
           <Panel
-            title="Master gain"
+            title={t("Master gain", "Gesamtpegel")}
             right={<span className="font-mono text-[10px]">{gainDb.toFixed(1)} dB</span>}
           >
             <input
@@ -782,21 +801,21 @@ function Workstation() {
             />
           </Panel>
 
-          <Panel title="Render & export" icon={<Download className="size-3.5" />}>
+          <Panel title={t("Render & export", "Rendern & Export")} icon={<Download className="size-3.5" />}>
             {!rendering ? (
               <button
                 onClick={() => void startRender()}
                 disabled={!analysis}
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-40"
               >
-                <Play className="size-4" /> Render {outChannels}-ch AmbiX
+                <Play className="size-4" /> {t(`Render ${outChannels}-ch AmbiX`, `${outChannels}-Kanal-AmbiX rendern`)}
               </button>
             ) : (
               <button
                 onClick={stopRender}
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
               >
-                <Square className="size-4" /> Stop
+                <Square className="size-4" /> {t("Stop", "Stopp")}
               </button>
             )}
 
@@ -806,7 +825,7 @@ function Workstation() {
                 <span>{pct.toFixed(1)}%</span>
                 <span>{fmtBytes(bytesWritten)}</span>
                 <span>
-                  {(speed / (analysis?.container.format.sampleRate || 1)).toFixed(1)}× realtime
+                  {(speed / (analysis?.container.format.sampleRate || 1)).toFixed(1)}× {t("realtime", "Echtzeit")}
                 </span>
                 <span>ETA {fmtTime(eta)}</span>
               </div>
@@ -815,7 +834,7 @@ function Workstation() {
             {result && (
               <div className="mt-3 rounded-lg border border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 p-3 text-xs">
                 <CircleCheck className="mr-2 inline size-4 text-[var(--v2-valid)]" />
-                Rendered {fmtBytes(bytesWritten)} in {(elapsed / 1000).toFixed(1)} s.
+                {t(`Rendered ${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s.`, `${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s gerendert.`)}
                 {result.url ? (
                   <a
                     href={result.url}
@@ -826,7 +845,7 @@ function Workstation() {
                   </a>
                 ) : (
                   <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                    Written straight to disk: {result.name}
+                    {t("Written straight to disk:", "Direkt auf die Festplatte geschrieben:")} {result.name}
                   </p>
                 )}
               </div>
@@ -857,10 +876,22 @@ function Workstation() {
         </div>
       </div>
 
-      <footer className="border-t border-border px-5 py-6 text-center text-[11px] text-muted-foreground">
-        AmbiX output: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN order, SN3D normalization, RF64
-        promotion past 4 GB. Binaural audition: HOAST SH-HRIR set, IEM Graz.
+      <footer className="space-y-2 border-t border-border px-5 py-6 text-center text-[11px] text-muted-foreground">
+        <p className="mx-auto max-w-2xl text-foreground/80">
+          <ShieldCheck className="mr-1.5 inline size-3.5 text-[var(--v2-valid)]" />
+          {t(
+            "Your audio files never leave your computer. All Atmos parsing, spatial math, binaural simulation and Ambisonic encoding happen directly on your CPU via browser Web Workers. No files are uploaded to any server.",
+            "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Atmos-Parsing, die Raumberechnung, die Binauralsimulation und die Ambisonics-Kodierung laufen direkt auf deiner CPU in Web Workern des Browsers. Es werden keine Dateien auf einen Server hochgeladen.",
+          )}
+        </p>
+        <p>
+          {t(
+            "AmbiX output: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN order, SN3D normalization, RF64 promotion past 4 GB. Binaural audition: HOAST SH-HRIR set, IEM Graz.",
+            "AmbiX-Ausgabe: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN-Reihenfolge, SN3D-Normalisierung, RF64 ab 4 GB. Binaurales Vorhören: HOAST-SH-HRIR-Satz, IEM Graz.",
+          )}
+        </p>
       </footer>
+      <PrivacyDialog open={privacy.open} onOpenChange={privacy.setOpen} />
     </div>
   );
 }
