@@ -609,7 +609,11 @@ function Workstation() {
           </Panel>
 
           {needsChannelMap && channelMap && (
-            <Panel title="Channel assignment" icon={<Layers className="size-3.5" />}>
+            <Panel
+              title="Channel assignment"
+              icon={<Layers className="size-3.5" />}
+              className="border-accent/60 bg-accent/5"
+            >
               <ChannelMapEditor
                 map={channelMap}
                 onChange={(next) => {
