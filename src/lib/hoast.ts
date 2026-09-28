@@ -89,6 +89,84 @@ export async function loadHoastFilters(
   return { order, foa, hoa };
 }
 
+export interface BinauralStereo {
+  left: Float32Array;
+  right: Float32Array;
+  sampleRate: number;
+  peak: number;
+}
+
+/**
+ * Offline (non-realtime) binaural decode of an ambisonic window to a plain
+ * stereo pair.
+ *
+ * Head tracking is not in play, so the decode is time invariant and can be
+ * pre-computed once. That keeps playback on a normal two channel buffer:
+ * browsers disagree badly about live 16/25 channel splitter graphs, and Safari
+ * refuses them outright. Each SH channel runs as its own mono source, so no
+ * multi-channel node is ever created.
+ */
+export async function renderBinauralStereo(
+  channels: Float32Array[],
+  frameCount: number,
+  sampleRate: number,
+  order: number,
+): Promise<BinauralStereo> {
+  if (frameCount <= 0) throw new Error("Nothing to decode");
+  const ctx = new OfflineAudioContext(2, frameCount, sampleRate);
+  const filters = await loadHoastFilters(ctx, order);
+
+  const nCh = Math.min((order + 1) * (order + 1), channels.length);
+  const merger = ctx.createChannelMerger(2);
+  const mid = ctx.createGain();
+  const side = ctx.createGain();
+  const invert = ctx.createGain();
+  invert.gain.value = -1;
+  mid.connect(merger, 0, 0);
+  mid.connect(merger, 0, 1);
+  side.connect(merger, 0, 0);
+  side.connect(invert);
+  invert.connect(merger, 0, 1);
+  merger.connect(ctx.destination);
+
+  for (let i = 0; i < nCh; i++) {
+    const raw = i < 4 ? filters.foa.getChannelData(i) : filters.hoa?.getChannelData(i - 4);
+    if (!raw) continue;
+    const rate = i < 4 ? filters.foa.sampleRate : filters.hoa!.sampleRate;
+    const ir = rate === sampleRate ? raw : resampleLinear(raw, rate, sampleRate);
+    const irBuf = ctx.createBuffer(1, ir.length, sampleRate);
+    irBuf.getChannelData(0).set(ir);
+
+    const conv = ctx.createConvolver();
+    conv.normalize = false;
+    conv.buffer = irBuf;
+
+    const inBuf = ctx.createBuffer(1, frameCount, sampleRate);
+    inBuf.getChannelData(0).set(channels[i]!.subarray(0, frameCount));
+    const src = ctx.createBufferSource();
+    src.buffer = inBuf;
+    src.connect(conv);
+
+    // m >= 0 harmonics are left/right symmetric, m < 0 antisymmetric.
+    const n = Math.floor(Math.sqrt(i));
+    const m = i - n * n - n;
+    conv.connect(m >= 0 ? mid : side);
+    src.start(0);
+  }
+
+  const out = await ctx.startRendering();
+  const left = new Float32Array(out.getChannelData(0));
+  const right = new Float32Array(out.getChannelData(1));
+  let peak = 0;
+  for (let i = 0; i < left.length; i++) {
+    const a = Math.abs(left[i]!);
+    const b = Math.abs(right[i]!);
+    if (a > peak) peak = a;
+    if (b > peak) peak = b;
+  }
+  return { left, right, sampleRate, peak };
+}
+
 /**
  * SH-domain binaural decoder. Feed it an nCh-channel ambisonic signal on `input`
  * and take stereo off `output`.
