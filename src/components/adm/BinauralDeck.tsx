@@ -1,7 +1,7 @@
 import { Headphones, Loader2, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { HoastBinauralDecoder, loadHoastFilters } from "@/lib/hoast";
+import { renderBinauralStereo, resampleLinear, type BinauralStereo } from "@/lib/hoast";
 
 export interface PreviewAudio {
   channels: Float32Array[];
@@ -51,26 +51,29 @@ export function BinauralDeck({
   windowLoading = false,
 }: Props) {
   const ctxRef = useRef<AudioContext | null>(null);
-  const decoderRef = useRef<HoastBinauralDecoder | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const stereoRef = useRef<BinauralStereo | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
   const startedAtRef = useRef(0);
   const offsetRef = useRef(0);
 
   const [ready, setReady] = useState(false);
   const [trimDb, setTrimDb] = useState(0);
-  const [loadingFilters, setLoadingFilters] = useState(false);
+  const [decoding, setDecoding] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0); // window-relative seconds
   const [volume, setVolume] = useState(0.85);
   const [muted, setMuted] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [warn, setWarn] = useState<string | null>(null);
 
   const windowStart = preview?.startSec ?? 0;
   const windowDur = preview ? preview.frameCount / preview.sampleRate : 0;
   const fullDur = preview ? preview.fullDurationSec || windowDur : 0;
+
+  const trimLin = stereoRef.current && stereoRef.current.peak > 0
+    ? Math.min(1, 0.5 / stereoRef.current.peak)
+    : 1;
 
   const stop = useCallback(() => {
     if (sourceRef.current) {
@@ -86,87 +89,36 @@ export function BinauralDeck({
     setPlaying(false);
   }, []);
 
-  // Build the audio graph whenever a new audition window arrives.
+  // Pre-compute the binaural mix whenever a new audition window arrives.
   useEffect(() => {
     stop();
     setReady(false);
     setPosition(0);
     offsetRef.current = 0;
+    stereoRef.current = null;
+    bufferRef.current = null;
     if (!preview) return;
 
     let cancelled = false;
     setErr(null);
-    setWarn(null);
-    setLoadingFilters(true);
+    setDecoding(true);
 
     (async () => {
       try {
-        // Run the context at the render's own rate where the browser allows
-        // it, so nothing in the monitor path is resampled.
-        let ctx = ctxRef.current;
-        if (ctx && ctx.sampleRate !== preview.sampleRate) {
-          decoderRef.current?.disconnect();
-          decoderRef.current = null;
-          void ctx.close();
-          ctx = null;
-        }
-        if (!ctx) {
-          try {
-            ctx = new AudioContext({ sampleRate: preview.sampleRate });
-          } catch {
-            ctx = new AudioContext();
-          }
-        }
-        ctxRef.current = ctx;
-        if (ctx.state === "suspended") await ctx.resume().catch(() => undefined);
-
-        const buf = ctx.createBuffer(preview.channels.length, preview.frameCount, ctx.sampleRate);
-        let peak = 0;
-        for (let i = 0; i < preview.channels.length; i++) {
-          const ch = preview.channels[i]!;
-          for (let n = 0; n < ch.length; n++) {
-            const v = Math.abs(ch[n]!);
-            if (v > peak) peak = v;
-          }
-          buf.getChannelData(i).set(ch);
-        }
-        bufferRef.current = buf;
-
-        // Binaural decoding of a dense HOA scene adds roughly 4 dB over the
-        // ambisonic peak, so trim the monitor path to stay clear of clipping.
-        const trimLin = peak > 0 ? Math.min(1, 0.5 / peak) : 1;
-        setTrimDb(trimLin < 1 ? 20 * Math.log10(trimLin) : 0);
-
-        decoderRef.current?.disconnect();
-        const decoder = new HoastBinauralDecoder(ctx, preview.order);
-        const trim = ctx.createGain();
-        trim.gain.value = trimLin;
-        const gain = ctx.createGain();
-        gain.gain.value = muted ? 0 : volume;
-        decoder.output.connect(trim);
-        trim.connect(gain);
-        gain.connect(ctx.destination);
-        decoderRef.current = decoder;
-        gainRef.current = gain;
-
-        // Transport is usable immediately; the measured HRIRs swap in as soon
-        // as they finish loading so a slow or failed fetch never blocks play.
-        if (!cancelled) setReady(true);
-
-        try {
-          const filters = await loadHoastFilters(ctx, preview.order);
-          if (cancelled) return;
-          decoder.setFilters(filters);
-        } catch (e) {
-          if (!cancelled)
-            setWarn(
-              `Measured HRIRs unavailable (${e instanceof Error ? e.message : String(e)}) — monitoring through the fallback decoder.`,
-            );
-        }
+        const stereo = await renderBinauralStereo(
+          preview.channels,
+          preview.frameCount,
+          preview.sampleRate,
+          preview.order,
+        );
+        if (cancelled) return;
+        stereoRef.current = stereo;
+        setTrimDb(stereo.peak > 0.5 ? 20 * Math.log10(0.5 / stereo.peak) : 0);
+        setReady(true);
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : String(e));
       } finally {
-        if (!cancelled) setLoadingFilters(false);
+        if (!cancelled) setDecoding(false);
       }
     })();
 
@@ -179,7 +131,6 @@ export function BinauralDeck({
   useEffect(
     () => () => {
       stop();
-      decoderRef.current?.disconnect();
       void ctxRef.current?.close();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,8 +138,8 @@ export function BinauralDeck({
   );
 
   useEffect(() => {
-    if (gainRef.current) gainRef.current.gain.value = muted ? 0 : volume;
-  }, [volume, muted]);
+    if (gainRef.current) gainRef.current.gain.value = (muted ? 0 : volume) * trimLin;
+  }, [volume, muted, trimLin]);
 
   // Playhead ticker
   useEffect(() => {
@@ -206,20 +157,47 @@ export function BinauralDeck({
     return () => cancelAnimationFrame(raf);
   }, [playing, windowDur]);
 
+  /** The context is created inside the click handler: both Chrome and Safari
+   *  only unlock audio when it is opened in the same gesture. */
+  const ensureContext = useCallback(() => {
+    let ctx = ctxRef.current;
+    if (!ctx) {
+      ctx = new AudioContext();
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      gainRef.current = gain;
+      ctxRef.current = ctx;
+      bufferRef.current = null;
+    }
+    return ctx;
+  }, []);
+
+  const ensureBuffer = useCallback((ctx: AudioContext) => {
+    if (bufferRef.current) return bufferRef.current;
+    const stereo = stereoRef.current;
+    if (!stereo) return null;
+    const rate = ctx.sampleRate;
+    const l = rate === stereo.sampleRate ? stereo.left : resampleLinear(stereo.left, stereo.sampleRate, rate);
+    const r = rate === stereo.sampleRate ? stereo.right : resampleLinear(stereo.right, stereo.sampleRate, rate);
+    const buf = ctx.createBuffer(2, l.length, rate);
+    buf.getChannelData(0).set(l);
+    buf.getChannelData(1).set(r);
+    bufferRef.current = buf;
+    return buf;
+  }, []);
+
   const playFrom = useCallback(
     async (offset: number) => {
-      const ctx = ctxRef.current;
-      const decoder = decoderRef.current;
-      const buf = bufferRef.current;
-      if (!ctx || !decoder || !buf) return;
+      const ctx = ensureContext();
+      const gain = gainRef.current;
+      const buf = ensureBuffer(ctx);
+      if (!gain || !buf) return;
+      gain.gain.value = (muted ? 0 : volume) * trimLin;
       await ctx.resume().catch(() => undefined);
       stop();
       const src = ctx.createBufferSource();
       src.buffer = buf;
-      src.channelCountMode = "explicit";
-      src.channelCount = buf.numberOfChannels;
-      src.channelInterpretation = "discrete";
-      src.connect(decoder.input);
+      src.connect(gain);
       src.onended = () => setPlaying(false);
       offsetRef.current = offset;
       startedAtRef.current = ctx.currentTime;
@@ -227,7 +205,7 @@ export function BinauralDeck({
       sourceRef.current = src;
       setPlaying(true);
     },
-    [stop],
+    [ensureBuffer, ensureContext, muted, stop, trimLin, volume],
   );
 
   const toggle = () => {
@@ -273,8 +251,9 @@ export function BinauralDeck({
 
       <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
         Headphone monitoring decodes through the IEM Graz HOAST spherical-harmonic HRIR set
-        (Neumann KU100). Those filters go up to 4th order, so 5th and 7th order renders are
-        auditioned at 4th order. The exported file always carries every channel.
+        (Neumann KU100) into a fixed stereo mix, then plays that back. Those filters go up to 4th
+        order, so 5th and 7th order renders are auditioned at 4th order. The exported file always
+        carries every channel.
       </p>
 
       {trimDb < -0.1 && (
@@ -300,7 +279,6 @@ export function BinauralDeck({
       </button>
 
       {err && <p className="mt-2 text-xs text-destructive">{err}</p>}
-      {warn && <p className="mt-2 text-[11px] text-accent">{warn}</p>}
 
       {preview && (
         <div className="mt-4 space-y-3">
@@ -322,9 +300,10 @@ export function BinauralDeck({
                 window {fmt(windowStart)} – {fmt(windowStart + windowDur)}
               </span>
             )}
-            {(loadingFilters || windowLoading) && (
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {windowLoading ? "loading window…" : "loading HRIRs…"}
+            {(decoding || windowLoading) && (
+              <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
+                <Loader2 className="size-3 animate-spin" />
+                {windowLoading ? "loading window…" : "decoding binaural mix…"}
               </span>
             )}
           </div>
