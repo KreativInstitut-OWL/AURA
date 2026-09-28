@@ -11,7 +11,7 @@
 
 ## Project rules
 
-- `/` renders the AURA workstation (`src/routes/index.tsx`); the older single-column UI lives at `/classic` — keeps the legacy renderer reachable without blocking the default experience.
-- The AURA UI is themed by the `.v2-theme` scope in `src/styles.css`, light by default with a `.dark` class on `<html>` — so the classic page keeps its own palette.
+- `/` renders the AURA workstation (`src/routes/index.tsx`); the classic UI was removed. UI strings use `useLang().t(en, de)` from `src/lib/i18n.ts`, German default — no i18n library needed for two languages.
+- The AURA UI is themed by the `.v2-theme` scope in `src/styles.css`, light by default with a `.dark` class on `<html>`.
 - HOAST HRIR filters are resampled to the AudioContext rate before being assigned to a ConvolverNode — Safari throws NotSupportedError on a rate mismatch.
 - Rendered AmbiX files are auditioned by re-decoding the output blob in `src/engine/decode.worker.ts` windows (leading 16/25 ACN channels only) — keeps full-length monitoring within a fixed memory budget.
