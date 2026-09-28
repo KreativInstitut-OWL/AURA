@@ -1,5 +1,6 @@
 import { TriangleAlert } from "lucide-react";
 
+import { useLang } from "@/lib/i18n";
 import { ALL_SPEAKER_ROLES, CHANNEL_UNUSED, SMPTE_LAYOUT_NAME } from "@/engine/adm";
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
  * assignment stays visible and editable.
  */
 export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
+  const { t } = useLang();
   const layout = SMPTE_LAYOUT_NAME[map.length];
   const duplicates = new Set(
     map.filter((r, i) => r !== CHANNEL_UNUSED && map.indexOf(r) !== i),
@@ -24,14 +26,16 @@ export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
     <div className="space-y-3 rounded-lg border-2 border-accent/70 bg-accent/[0.07] p-3 shadow-[0_0_0_4px_rgba(0,0,0,0.02)]">
       <div className="flex items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-background">
-          <TriangleAlert className="size-3" /> Action required
+          <TriangleAlert className="size-3" /> {t("Action required", "Handlung erforderlich")}
         </span>
       </div>
       <p className="text-[11px] leading-relaxed text-foreground">
-        No ADM metadata in this file. Loudspeaker positions are <strong>assumed</strong> from the
-        channel order
-        {layout ? ` of a ${layout} layout` : ""}. There is no universal order across renderers —
-        check every channel below before rendering.
+        {t("No ADM metadata in this file. Loudspeaker positions are ", "Diese Datei enthält keine ADM-Metadaten. Die Lautsprecherpositionen werden aus der Kanalreihenfolge ")}
+        <strong>{t("assumed", "angenommen")}</strong>
+        {t(
+          ` from the channel order${layout ? ` of a ${layout} layout` : ""}. There is no universal order across renderers — check every channel below before rendering.`,
+          `${layout ? ` (Layout ${layout})` : ""}. Es gibt keine einheitliche Reihenfolge zwischen Renderern — prüfe vor dem Rendern jeden Kanal unten.`,
+        )}
       </p>
 
 
@@ -59,7 +63,7 @@ export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
                 duplicates.has(role) ? "border-destructive text-destructive" : "border-border"
               }`}
             >
-              <option value={CHANNEL_UNUSED}>{CHANNEL_UNUSED} unused</option>
+              <option value={CHANNEL_UNUSED}>{CHANNEL_UNUSED} {t("unused", "nicht belegt")}</option>
               {ALL_SPEAKER_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -72,7 +76,7 @@ export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
 
       {duplicates.size > 0 && (
         <p className="text-[11px] text-destructive">
-          Assigned twice: {[...duplicates].join(", ")} — each loudspeaker should appear once.
+          {t("Assigned twice:", "Doppelt belegt:")} {[...duplicates].join(", ")} — {t("each loudspeaker should appear once.", "jeder Lautsprecher sollte nur einmal vorkommen.")}
         </p>
       )}
 
@@ -81,7 +85,7 @@ export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
         disabled={disabled}
         className="w-full rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40"
       >
-        Reset to assumed order
+        {t("Reset to assumed order", "Auf angenommene Reihenfolge zurücksetzen")}
       </button>
     </div>
   );

@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronRight, CircleCheck, CircleX, Copy, Search } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 import { Fragment, useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/card";
@@ -29,10 +30,11 @@ function Tag({
   );
 }
 
-function statusLabel(d: TrackDiagnostic) {
-  if (d.status === "unresolved") return "unresolved";
-  if (d.guessed) return `${d.status} (guess)`;
-  return d.status;
+function statusLabel(d: TrackDiagnostic, t: (en: string, de: string) => string = (en) => en) {
+  if (d.status === "unresolved") return t("unresolved", "ungelöst");
+  const base = d.status === "object" ? t("object", "Objekt") : d.status;
+  if (d.guessed) return `${base} (${t("guess", "geschätzt")})`;
+  return base;
 }
 
 function buildReport(analysis: AnalysisResult): string {
@@ -59,6 +61,7 @@ function buildReport(analysis: AnalysisResult): string {
 }
 
 export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [query, setQuery] = useState("");
@@ -120,13 +123,13 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
         className="flex w-full items-center gap-2 text-left text-sm font-semibold uppercase tracking-wide text-muted-foreground"
       >
         {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        <Search className="size-4 text-primary" /> Metadata inspector
+        <Search className="size-4 text-primary" /> {t("Metadata inspector", "Metadaten-Inspektor")}
         <span className="ml-auto font-mono text-[11px] normal-case tracking-normal">
-          {counts.total} tracks · {counts.beds} bed · {counts.objects} obj ·{" "}
+          {counts.total} {t("tracks", "Spuren")} · {counts.beds} Bed · {counts.objects} {t("obj", "Obj.")} ·{" "}
           <span className={counts.unresolved ? "text-destructive" : ""}>
-            {counts.unresolved} unresolved
+            {counts.unresolved} {t("unresolved", "ungelöst")}
           </span>
-          {counts.guessed > 0 && <span className="text-accent"> · {counts.guessed} guessed</span>}
+          {counts.guessed > 0 && <span className="text-accent"> · {counts.guessed} {t("guessed", "geschätzt")}</span>}
         </span>
       </button>
 
@@ -135,20 +138,20 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
           {/* Stream map + track resolution traces */}
           <div>
             <p className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-              Stream map & resolution trace
+              {t("Stream map & resolution trace", "Stream-Übersicht & Auflösungspfad")}
             </p>
             <div className="max-h-96 overflow-auto rounded-md border border-border">
               <table className="w-full font-mono text-xs">
                 <thead className="sticky top-0 bg-secondary text-muted-foreground">
                   <tr>
-                    <th className="p-2 text-left">Trk</th>
+                    <th className="p-2 text-left">{t("Trk", "Spur")}</th>
                     <th className="p-2 text-left">Name</th>
-                    <th className="p-2 text-left">Type</th>
+                    <th className="p-2 text-left">{t("Type", "Typ")}</th>
                     <th className="p-2 text-right">Az</th>
                     <th className="p-2 text-right">El</th>
-                    <th className="p-2 text-left">Motion</th>
+                    <th className="p-2 text-left">{t("Motion", "Bewegung")}</th>
                     <th className="p-2 text-left">Status</th>
-                    <th className="p-2 text-left">Detail</th>
+                    <th className="p-2 text-left">{t("Detail", "Details")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -188,7 +191,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                           <td className="p-2">
                             {s && (
                               <Tag tone={s.points.length ? "primary" : "muted"}>
-                                {s.points.length ? `${s.points.length} keyframes` : "static"}
+                                {s.points.length ? `${s.points.length} ${t("keyframes", "Keyframes")}` : t("static", "statisch")}
                               </Tag>
                             )}
                           </td>
@@ -202,7 +205,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                                     : "primary"
                               }
                             >
-                              {statusLabel(d)}
+                              {statusLabel(d, t)}
                             </Tag>
                           </td>
                           <td
@@ -241,7 +244,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
               </table>
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Click a row to see how the app followed that track's references.
+              {t("Click a row to see how the app followed that track's references.", "Klicke auf eine Zeile, um zu sehen, wie die App den Referenzen dieser Spur gefolgt ist.")}
             </p>
           </div>
 
@@ -249,7 +252,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
           {/* Chunk map */}
           <div>
             <p className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-              Chunk map
+              {t("Chunk map", "Chunk-Übersicht")}
             </p>
             <div className="flex flex-wrap gap-2 font-mono text-[11px]">
               {container.chunks.map((k) => {
@@ -264,7 +267,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                     }`}
                   >
                     {k.id.trim()} · {k.size.toLocaleString()} B @ {k.offset.toLocaleString()}
-                    {used ? "" : " · ignored"}
+                    {used ? "" : ` · ${t("ignored", "ignoriert")}`}
                   </span>
                 );
               })}
@@ -275,7 +278,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                axml ({container.axml ? `${container.axml.length.toLocaleString()} chars` : "absent"}
+                axml ({container.axml ? `${container.axml.length.toLocaleString()} ${t("chars", "Zeichen")}` : t("absent", "fehlt")}
                 )
               </p>
               <div className="ml-auto flex gap-2">
@@ -284,17 +287,17 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                   disabled={!container.axml}
                   className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-secondary disabled:opacity-40"
                 >
-                  <Copy className="size-3" /> Copy axml
+                  <Copy className="size-3" /> {t("Copy axml", "axml kopieren")}
                 </button>
                 <button
                   onClick={() => void copy("report", buildReport(analysis))}
                   className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] text-primary hover:bg-primary/20"
                 >
-                  <Copy className="size-3" /> Copy diagnostics
+                  <Copy className="size-3" /> {t("Copy diagnostics", "Diagnose kopieren")}
                 </button>
                 {copied && (
                   <span className="self-center font-mono text-[11px] text-muted-foreground">
-                    {copied === "failed" ? "copy failed" : "copied"}
+                    {copied === "failed" ? t("copy failed", "Kopieren fehlgeschlagen") : t("copied", "kopiert")}
                   </span>
                 )}
               </div>
@@ -313,15 +316,15 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search the raw axml…"
+              placeholder={t("Search the raw axml…", "Rohes axml durchsuchen…")}
               className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs outline-none focus:border-primary"
             />
             <pre className="mt-2 max-h-72 overflow-auto rounded-md border border-border bg-secondary/30 p-3 font-mono text-[11px] leading-relaxed">
               {axmlMatches
                 ? axmlMatches.length
                   ? axmlMatches.map((h) => `${h.i}: ${h.text}`).join("\n")
-                  : "no matches"
-                : (container.axml ?? "No axml chunk in this file.").slice(0, 20000)}
+                  : t("no matches", "keine Treffer")
+                : (container.axml ?? t("No axml chunk in this file.", "Kein axml-Chunk in dieser Datei.")).slice(0, 20000)}
             </pre>
           </div>
         </div>

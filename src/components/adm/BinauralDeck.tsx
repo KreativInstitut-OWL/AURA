@@ -1,4 +1,5 @@
 import { Headphones, Loader2, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { renderBinauralStereo, resampleLinear, type BinauralStereo } from "@/lib/hoast";
@@ -51,6 +52,7 @@ export function BinauralDeck({
   windowLoading = false,
 }: Props) {
   const ctxRef = useRef<AudioContext | null>(null);
+  const { t } = useLang();
   const gainRef = useRef<GainNode | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const stereoRef = useRef<BinauralStereo | null>(null);
@@ -237,28 +239,28 @@ export function BinauralDeck({
     preview === null
       ? null
       : preview.renderOrder <= 3
-        ? `${preview.order}rd-order binaural · ${preview.channels.length} ch`
-        : `${preview.order}th-order binaural · ${preview.channels.length} of ${(preview.renderOrder + 1) ** 2} ch`;
+        ? t(`${preview.order}rd-order binaural · ${preview.channels.length} ch`, `Binaural ${preview.order}. Ordnung · ${preview.channels.length} Kan.`)
+        : t(`${preview.order}th-order binaural · ${preview.channels.length} of ${(preview.renderOrder + 1) ** 2} ch`, `Binaural ${preview.order}. Ordnung · ${preview.channels.length} von ${(preview.renderOrder + 1) ** 2} Kan.`);
 
   return (
     <div className="rounded-xl border border-border bg-card/60 p-4">
       <div className="mb-3 flex items-center gap-2">
         <Headphones className="size-4 text-primary" />
         <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Binaural audition
+          {t("Binaural audition", "Binaurales Vorhören")}
         </h3>
       </div>
 
       <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
-        Headphone monitoring decodes through the IEM Graz HOAST spherical-harmonic HRIR set
-        (Neumann KU100) into a fixed stereo mix, then plays that back. Those filters go up to 4th
-        order, so 5th and 7th order renders are auditioned at 4th order. The exported file always
-        carries every channel.
+        {t(
+          "Headphone monitoring decodes through the IEM Graz HOAST spherical-harmonic HRIR set (Neumann KU100) into a fixed stereo mix, then plays that back. Those filters go up to 4th order, so 5th and 7th order renders are auditioned at 4th order. The exported file always carries every channel.",
+          "Das Kopfhörer-Monitoring dekodiert über den HOAST-HRIR-Satz der IEM Graz (Neumann KU100) in einen festen Stereomix und spielt diesen ab. Die Filter reichen bis zur 4. Ordnung, daher werden Renderings in 5. und 7. Ordnung in 4. Ordnung vorgehört. Die exportierte Datei enthält immer alle Kanäle.",
+        )}
       </p>
 
       {trimDb < -0.1 && (
         <p className="mb-3 font-mono text-[11px] text-[var(--v2-valid)]">
-          Monitor trim {trimDb.toFixed(1)} dB — listening only, the export is untouched.
+          {t(`Monitor trim ${trimDb.toFixed(1)} dB — listening only, the export is untouched.`, `Abhörpegel ${trimDb.toFixed(1)} dB — nur zum Hören, der Export bleibt unverändert.`)}
         </p>
       )}
 
@@ -269,12 +271,12 @@ export function BinauralDeck({
       >
         {generating ? (
           <span className="inline-flex items-center gap-2">
-            <Loader2 className="size-4 animate-spin" /> Preparing preview… {progress.toFixed(0)}%
+            <Loader2 className="size-4 animate-spin" /> {t("Preparing preview…", "Vorschau wird erstellt…")} {progress.toFixed(0)}%
           </span>
         ) : preview?.source === "preview" ? (
-          "Re-render quick preview"
+          t("Re-render quick preview", "Schnellvorschau neu erstellen")
         ) : (
-          "Quick preview (first minute)"
+          t("Quick preview (first minute)", "Schnellvorschau (erste Minute)")
         )}
       </button>
 
@@ -293,17 +295,17 @@ export function BinauralDeck({
                   : "border-accent/40 bg-accent/10 text-accent"
               }`}
             >
-              {preview.source === "render" ? "rendered file" : "quick preview"}
+              {preview.source === "render" ? t("rendered file", "gerenderte Datei") : t("quick preview", "Schnellvorschau")}
             </span>
             {preview.truncated && (
               <span className="rounded-full border border-border px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
-                window {fmt(windowStart)} – {fmt(windowStart + windowDur)}
+                {t("window", "Fenster")} {fmt(windowStart)} – {fmt(windowStart + windowDur)}
               </span>
             )}
             {(decoding || windowLoading) && (
               <span className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
                 <Loader2 className="size-3 animate-spin" />
-                {windowLoading ? "loading window…" : "decoding binaural mix…"}
+                {windowLoading ? t("loading window…", "Fenster wird geladen…") : t("decoding binaural mix…", "Binauralmix wird dekodiert…")}
               </span>
             )}
           </div>
@@ -343,8 +345,10 @@ export function BinauralDeck({
 
           {preview.source === "render" && preview.truncated && (
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              The rendered file is auditioned in memory-sized windows — drag the timeline anywhere
-              and the next window loads from that point.
+              {t(
+                "The rendered file is auditioned in memory-sized windows — drag the timeline anywhere and the next window loads from that point.",
+                "Die gerenderte Datei wird in speichergerechten Fenstern vorgehört — zieh die Zeitleiste an eine beliebige Stelle, dann wird ab dort das nächste Fenster geladen.",
+              )}
             </p>
           )}
 
