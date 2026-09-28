@@ -79,13 +79,29 @@ export function BinauralDeck({ preview, generating, progress, canGenerate, onGen
 
     (async () => {
       try {
-        const ctx = ctxRef.current ?? new AudioContext();
+        // Run the context at the render's own rate where the browser allows
+        // it, so nothing in the monitor path is resampled.
+        let ctx = ctxRef.current;
+        if (ctx && ctx.sampleRate !== preview.sampleRate) {
+          decoderRef.current?.disconnect();
+          decoderRef.current = null;
+          void ctx.close();
+          ctx = null;
+        }
+        if (!ctx) {
+          try {
+            ctx = new AudioContext({ sampleRate: preview.sampleRate });
+          } catch {
+            ctx = new AudioContext();
+          }
+        }
         ctxRef.current = ctx;
+        if (ctx.state === "suspended") await ctx.resume().catch(() => undefined);
 
         const buf = ctx.createBuffer(
           preview.channels.length,
           preview.frameCount,
-          preview.sampleRate,
+          ctx.sampleRate,
         );
         let peak = 0;
         for (let i = 0; i < preview.channels.length; i++) {
