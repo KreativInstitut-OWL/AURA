@@ -66,6 +66,14 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
 
   const { container, diagnostics } = analysis;
 
+  /** the stream map lives in the same table: sources are keyed by 1-based track */
+  const sourceByTrack = useMemo(
+    () => new Map(analysis.sources.map((s) => [s.channelIndex + 1, s])),
+    [analysis.sources],
+  );
+
+
+
   const counts = useMemo(() => {
     const beds = diagnostics.filter((d) => d.status === "bed").length;
     const objects = diagnostics.filter((d) => d.status === "object").length;
