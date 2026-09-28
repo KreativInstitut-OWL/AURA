@@ -652,55 +652,16 @@ function Workstation() {
             </div>
           </Panel>
 
-          {analysis && (
-            <Panel title="ADM stream map" icon={<Activity className="size-3.5" />}>
-              <div className="max-h-[460px] space-y-1.5 overflow-auto pr-1">
-                {analysis.sources.map((s) => (
-                  <div
-                    key={s.channelIndex}
-                    className="rounded-lg border border-border bg-background/40 px-3 py-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-mono text-[11px]">
-                        <span className="text-muted-foreground">
-                          {String(s.channelIndex + 1).padStart(2, "0")}
-                        </span>{" "}
-                        {s.name}
-                      </span>
-                      <span
-                        className={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase ${
-                          s.isLFE
-                            ? "border-accent/40 bg-accent/10 text-accent"
-                            : s.kind === "bed"
-                              ? "border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 text-[var(--v2-valid)]"
-                              : "border-border text-muted-foreground"
-                        }`}
-                      >
-                        {s.isLFE ? "LFE" : s.kind === "bed" ? "bed" : "object"}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex gap-3 font-mono text-[10px] text-muted-foreground">
-                      <span>
-                        {s.isLFE ? "omni → W" : `az ${rad2deg(s.azimuth).toFixed(1)}°`}
-                      </span>
-                      {!s.isLFE && <span>el {rad2deg(s.elevation).toFixed(1)}°</span>}
-                      <span className="ml-auto">
-                        {s.points.length ? `${s.points.length} keyframes` : "static"}
-                      </span>
-                    </div>
-                  </div>
+          {analysis && analysis.warnings.length > 0 && (
+            <Panel title="Warnings" icon={<TriangleAlert className="size-3.5" />}>
+              <ul className="space-y-1 text-[11px] text-muted-foreground">
+                {analysis.warnings.map((w, i) => (
+                  <li key={i}>
+                    <TriangleAlert className="mr-1 inline size-3 text-accent" />
+                    {w}
+                  </li>
                 ))}
-              </div>
-              {analysis.warnings.length > 0 && (
-                <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground">
-                  {analysis.warnings.map((w, i) => (
-                    <li key={i}>
-                      <TriangleAlert className="mr-1 inline size-3 text-accent" />
-                      {w}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              </ul>
             </Panel>
           )}
         </div>
