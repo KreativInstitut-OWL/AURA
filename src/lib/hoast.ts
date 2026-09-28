@@ -67,7 +67,7 @@ export async function loadHoastFilters(
     groups.map(async (suffix) => {
       const res = await fetch(`${IR_BASE}_o${order}${suffix}.wav`);
       if (!res.ok) throw new Error(`Could not load binaural filters (${res.status})`);
-      return ctx.decodeAudioData(await res.arrayBuffer());
+      return decodeAudio(ctx, await res.arrayBuffer());
     }),
   );
 
