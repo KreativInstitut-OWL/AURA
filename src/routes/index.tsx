@@ -351,6 +351,14 @@ function Workstation() {
     setRendering(false);
   };
 
+  // "apply suggested gain & re-render": set the slider, then start once state settled
+  const [pendingRerender, setPendingRerender] = useState(false);
+  useEffect(() => {
+    if (!pendingRerender || rendering) return;
+    setPendingRerender(false);
+    void startRender();
+  }, [pendingRerender, rendering, startRender]);
+
 
   const total = analysis?.container.frameCount ?? 0;
   const pct = total > 0 ? (framesDone / total) * 100 : 0;
