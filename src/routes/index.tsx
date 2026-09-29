@@ -294,6 +294,11 @@ function Workstation() {
         setRendering(false);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
+        // Peak is measured in 32-bit float before 24-bit quantisation clamps it.
+        const peakDb = msg.maxPeak > 0 ? 20 * Math.log10(msg.maxPeak) : -Infinity;
+        const suggested =
+          peakDb > 0 ? Math.max(-24, Math.floor((gainDb - peakDb - 0.2) * 2) / 2) : gainDb;
+        setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
         const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
         setResult({ url, name: outName });
         if (url) {
