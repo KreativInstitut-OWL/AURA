@@ -161,6 +161,12 @@ function Workstation() {
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<{ url: string; name: string } | null>(null);
   const [playhead, setPlayhead] = useState(0);
+  /** peak report of the last finished render, in dBFS */
+  const [clip, setClip] = useState<{
+    peakDb: number;
+    channel: number;
+    suggestedGain: number;
+  } | null>(null);
 
   /** channel → loudspeaker assignment, only used for files without ADM metadata */
   const [channelMap, setChannelMap] = useState<string[] | null>(null);
