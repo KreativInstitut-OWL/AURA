@@ -254,21 +254,19 @@ function Workstation() {
 
     const baseName = file.name.replace(/\.[^.]+$/, "");
     const hasLfe = analysis.sources.some((s) => s.isLFE);
-    const lfeTag = !hasLfe
-      ? ""
-      : lfeMode === "inject"
-        ? "_LFE-3dB"
-        : lfeMode === "inject0"
-          ? "_LFE0dB"
-          : lfeMode === "inject10"
-            ? "_LFE+10dB"
-            : "_noLFE";
+    const routeTag =
+      lfeRouting === "omni" ? "omni" : lfeRouting === "down" ? "down" : "pos";
+    const levelTag = lfeGain === "minus3" ? "-3dB" : lfeGain === "unity" ? "0dB" : "+10dB";
+    const lfeTag = !hasLfe ? "" : lfeRouting === "off" ? "_noLFE" : `_LFE${routeTag}${levelTag}`;
     // Only tag the gain when it differs from unity.
     const gainTag =
       gainDb === 0
         ? ""
         : `_gain${gainDb > 0 ? "+" : "-"}${Math.abs(gainDb).toFixed(1).replace(/\.0$/, "")}dB`;
-    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}${gainTag}_AURA.wav`;
+    // Dolby is the default geometry, so only ITU renders carry a profile tag.
+    const profileTag = profile === "itu" ? "_ITU" : "";
+    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}${gainTag}${profileTag}_AURA.wav`;
+
 
     let handle: FileSystemFileHandle | null = null;
     const picker = (
