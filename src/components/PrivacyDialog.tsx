@@ -52,8 +52,8 @@ export function PrivacyDialog({ open, onOpenChange }: { open: boolean; onOpenCha
           <WifiOff className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <span>
             {t(
-              "Want to be sure? Once the page has loaded, switch on airplane mode or disconnect Wi-Fi — AURA keeps working.",
-              "Du willst sichergehen? Sobald die Seite geladen ist, aktiviere den Flugmodus oder trenne das WLAN — AURA funktioniert weiter.",
+              "See for yourself! Once the page has loaded, switch on airplane mode or disconnect Wi-Fi — AURA keeps working.",
+              "Überzeuge dich selbst davon! Sobald die Seite geladen ist, aktiviere den Flugmodus oder trenne das WLAN — AURA funktioniert weiter.",
             )}
           </span>
         </div>

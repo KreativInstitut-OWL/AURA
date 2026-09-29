@@ -1,7 +1,12 @@
 import { TriangleAlert } from "lucide-react";
 
 import { useLang } from "@/lib/i18n";
-import { ALL_SPEAKER_ROLES, CHANNEL_UNUSED, SMPTE_LAYOUT_NAME } from "@/engine/adm";
+import {
+  ALL_SPEAKER_ROLES,
+  CHANNEL_UNUSED,
+  SMPTE_LAYOUT_NAME,
+  defaultChannelMap,
+} from "@/engine/adm";
 
 interface Props {
   map: string[];
@@ -21,6 +26,8 @@ export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
   const duplicates = new Set(
     map.filter((r, i) => r !== CHANNEL_UNUSED && map.indexOf(r) !== i),
   );
+  const assumed = defaultChannelMap(map.length);
+  const dirty = map.some((r, i) => r !== assumed[i]);
 
   return (
     <div className="space-y-3 rounded-lg border-2 border-accent/70 bg-accent/[0.07] p-3 shadow-[0_0_0_4px_rgba(0,0,0,0.02)]">
@@ -82,8 +89,12 @@ export function ChannelMapEditor({ map, onChange, onReset, disabled }: Props) {
 
       <button
         onClick={onReset}
-        disabled={disabled}
-        className="w-full rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+        disabled={disabled || !dirty}
+        className={`w-full rounded-lg px-3 py-2 text-xs transition-colors disabled:opacity-40 ${
+          dirty
+            ? "bg-foreground font-semibold text-background hover:opacity-90"
+            : "border border-border text-muted-foreground hover:bg-secondary"
+        }`}
       >
         {t("Reset to assumed order", "Auf angenommene Reihenfolge zurücksetzen")}
       </button>
