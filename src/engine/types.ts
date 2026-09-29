@@ -132,6 +132,17 @@ export type WorkerResponse =
       peaks: Float32Array;
       bytesWritten: number;
       elapsedMs: number;
+      /** running maximum absolute sample across all ACN channels (pre-quantisation) */
+      maxPeak: number;
+      /** ACN index that produced maxPeak */
+      maxPeakChannel: number;
     }
-  | { type: "done"; blob: Blob | null; bytesWritten: number; elapsedMs: number }
+  | {
+      type: "done";
+      blob: Blob | null;
+      bytesWritten: number;
+      elapsedMs: number;
+      maxPeak: number;
+      maxPeakChannel: number;
+    }
   | { type: "error"; message: string };

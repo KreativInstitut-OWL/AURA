@@ -125,6 +125,8 @@ async function render(req: WorkerRequest) {
 
   let frame = 0;
   let lastPost = 0;
+  let maxPeak = 0;
+  let maxPeakChannel = 0;
   while (frame < totalFrames) {
     const frames = Math.min(FRAME_BLOCK, totalFrames - frame);
     const byteStart = container.dataOffset + frame * container.blockAlign;
@@ -182,7 +184,7 @@ async function render(req: WorkerRequest) {
       }
     }
 
-    // Meters
+    // Meters — also track the global maximum before 24-bit quantisation clamps it.
     for (let l = 0; l < M; l++) {
       let pk = 0;
       const base = l * frames;
@@ -191,6 +193,10 @@ async function render(req: WorkerRequest) {
         if (a > pk) pk = a;
       }
       peaks[l] = pk;
+      if (pk > maxPeak) {
+        maxPeak = pk;
+        maxPeakChannel = l;
+      }
     }
 
     packInt24(planar, M, frames, outBytes);
@@ -207,6 +213,8 @@ async function render(req: WorkerRequest) {
         peaks: new Float32Array(peaks),
         bytesWritten,
         elapsedMs: now - started,
+        maxPeak,
+        maxPeakChannel,
       });
     }
   }
@@ -218,6 +226,8 @@ async function render(req: WorkerRequest) {
       blob: null,
       bytesWritten,
       elapsedMs: performance.now() - started,
+      maxPeak,
+      maxPeakChannel,
     });
   } else {
     post({
@@ -225,6 +235,8 @@ async function render(req: WorkerRequest) {
       blob: new Blob(blobParts, { type: "audio/wav" }),
       bytesWritten,
       elapsedMs: performance.now() - started,
+      maxPeak,
+      maxPeakChannel,
     });
   }
 }

@@ -161,6 +161,12 @@ function Workstation() {
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<{ url: string; name: string } | null>(null);
   const [playhead, setPlayhead] = useState(0);
+  /** peak report of the last finished render, in dBFS */
+  const [clip, setClip] = useState<{
+    peakDb: number;
+    channel: number;
+    suggestedGain: number;
+  } | null>(null);
 
   /** channel → loudspeaker assignment, only used for files without ADM metadata */
   const [channelMap, setChannelMap] = useState<string[] | null>(null);
@@ -233,6 +239,8 @@ function Workstation() {
     setFramesDone(0);
     setBytesWritten(0);
 
+    setClip(null);
+
     const baseName = file.name.replace(/\.[^.]+$/, "");
     const hasLfe = analysis.sources.some((s) => s.isLFE);
     const lfeTag = !hasLfe
@@ -244,7 +252,12 @@ function Workstation() {
           : lfeMode === "inject10"
             ? "_LFE+10dB"
             : "_noLFE";
-    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}_AURA.wav`;
+    // Only tag the gain when it differs from unity.
+    const gainTag =
+      gainDb === 0
+        ? ""
+        : `_gain${gainDb > 0 ? "+" : "-"}${Math.abs(gainDb).toFixed(1).replace(/\.0$/, "")}dB`;
+    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}${gainTag}_AURA.wav`;
 
     let handle: FileSystemFileHandle | null = null;
     const picker = (
@@ -287,6 +300,11 @@ function Workstation() {
         setRendering(false);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
+        // Peak is measured in 32-bit float before 24-bit quantisation clamps it.
+        const peakDb = msg.maxPeak > 0 ? 20 * Math.log10(msg.maxPeak) : -Infinity;
+        const suggested =
+          peakDb > 0 ? Math.max(-24, Math.floor((gainDb - peakDb - 0.2) * 2) / 2) : gainDb;
+        setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
         const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
         setResult({ url, name: outName });
         if (url) {
@@ -332,6 +350,14 @@ function Workstation() {
     workerRef.current = null;
     setRendering(false);
   };
+
+  // "apply suggested gain & re-render": set the slider, then start once state settled
+  const [pendingRerender, setPendingRerender] = useState(false);
+  useEffect(() => {
+    if (!pendingRerender || rendering) return;
+    setPendingRerender(false);
+    void startRender();
+  }, [pendingRerender, rendering, startRender]);
 
 
   const total = analysis?.container.frameCount ?? 0;
@@ -700,6 +726,36 @@ function Workstation() {
                   </p>
                 )}
               </div>
+            )}
+
+            {result && clip && (
+              clip.peakDb > 0 ? (
+                <div className="mt-3 rounded-lg border border-accent/60 bg-accent/10 p-3 text-xs">
+                  <TriangleAlert className="mr-2 inline size-4 text-accent" />
+                  {t(
+                    `Clipping detected: peak reached +${clip.peakDb.toFixed(1)} dBFS on ACN ${clip.channel}. The 24-bit output was limited.`,
+                    `Übersteuerung erkannt: Spitzenwert +${clip.peakDb.toFixed(1)} dBFS auf ACN ${clip.channel}. Die 24-Bit-Ausgabe wurde beschnitten.`,
+                  )}
+                  <button
+                    onClick={() => {
+                      setGainDb(clip.suggestedGain);
+                      setPendingRerender(true);
+                    }}
+                    disabled={rendering}
+                    className="mt-2 w-full rounded-lg bg-foreground px-3 py-2 text-[11px] font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {t(
+                      `Apply suggested gain (${clip.suggestedGain.toFixed(1)} dB) & re-render`,
+                      `Vorgeschlagenen Gain (${clip.suggestedGain.toFixed(1)} dB) anwenden & neu rendern`,
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                  {t("Peak", "Spitzenwert")}: {clip.peakDb === -Infinity ? "-∞" : clip.peakDb.toFixed(1)} dBFS ·{" "}
+                  {t("clean headroom", "sauberer Headroom")}
+                </p>
+              )
             )}
           </Panel>
 
