@@ -174,16 +174,22 @@ async function render(req: WorkerRequest) {
       }
     }
 
-    // --- LFE: 120 Hz low-pass, injected into W only ---
+    // --- LFE: 120 Hz low-pass, placed per the routing setting ---
     for (const l of lfes) {
       const filt = lfeFilters.get(l)!;
-      const g = (LFE_MODE_GAIN[config.lfeMode] ?? Math.SQRT1_2) * config.masterGain;
+      const C = lfeCoeffs.get(l)!;
+      const g = (LFE_GAIN_VALUE[config.lfeGain] ?? Math.SQRT1_2) * config.masterGain;
       const chOff = l.channelIndex * bytesPerSample;
       for (let f = 0; f < frames; f++) {
-        const s = filt.process(decode(raw, f * container.blockAlign + chOff));
-        planar[f] = planar[f]! + s * g;
+        const s = filt.process(decode(raw, f * container.blockAlign + chOff)) * g;
+        if (s === 0) continue;
+        for (let c = 0; c < M; c++) {
+          if (C[c] === 0) continue;
+          planar[c * frames + f] = planar[c * frames + f]! + s * C[c]!;
+        }
       }
     }
+
 
     // --- Objects: sub-block coefficient ramping ---
     for (const o of objects) {
