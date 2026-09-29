@@ -707,6 +707,12 @@ function Workstation() {
               <div className="mt-3 rounded-lg border border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 p-3 text-xs">
                 <CircleCheck className="mr-2 inline size-4 text-[var(--v2-valid)]" />
                 {t(`Rendered ${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s.`, `${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s gerendert.`)}
+                {clip && (
+                  <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                    {t("Sample peak (all channels)", "Sample-Peak (alle Kanäle)")}:{" "}
+                    {clip.peakDb === -Infinity ? "-∞" : `${clip.peakDb > 0 ? "+" : ""}${clip.peakDb.toFixed(1)}`} dBFS
+                  </span>
+                )}
                 {result.url ? (
                   <>
                     <p className="mt-1 text-[11px] text-muted-foreground">
