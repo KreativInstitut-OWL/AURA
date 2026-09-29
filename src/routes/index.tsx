@@ -234,7 +234,17 @@ function Workstation() {
     setBytesWritten(0);
 
     const baseName = file.name.replace(/\.[^.]+$/, "");
-    const outName = `${baseName}_AmbiX_O${order}_${outChannels}ch.wav`;
+    const hasLfe = analysis.sources.some((s) => s.isLFE);
+    const lfeTag = !hasLfe
+      ? ""
+      : lfeMode === "inject"
+        ? "_LFE-3dB"
+        : lfeMode === "inject0"
+          ? "_LFE0dB"
+          : lfeMode === "inject10"
+            ? "_LFE+10dB"
+            : "_noLFE";
+    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}_AURA.wav`;
 
     let handle: FileSystemFileHandle | null = null;
     const picker = (
