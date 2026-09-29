@@ -249,7 +249,8 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
           </div>
 
 
-          {/* Chunk map */}
+          {/* Chunk map — retired from the UI, kept for future debugging */}
+          {SHOW_DEBUG_BLOCKS && (
           <div>
             <p className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
               {t("Chunk map", "Chunk-Übersicht")}
@@ -273,6 +274,8 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
               })}
             </div>
           </div>
+          )}
+
 
           {/* axml */}
           <div>
