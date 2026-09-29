@@ -832,12 +832,6 @@ function Workstation() {
             "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Parsing, die Raumberechnung und die Ambisonics-Kodierung laufen direkt auf deiner CPU in diesem Browser-Tab. Es werden keine Dateien auf einen Server hochgeladen.",
           )}
         </p>
-        <p>
-          {t(
-            "AmbiX output: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN order, SN3D normalization, RF64 promotion past 4 GB.",
-            "AmbiX-Ausgabe: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN-Reihenfolge, SN3D-Normalisierung, RF64 ab 4 GB.",
-          )}
-        </p>
         <p className="mx-auto max-w-3xl">
           {t(
             "AURA is an independent tool and is not affiliated with, endorsed by or certified by Dolby Laboratories, Inc. It reads the open Audio Definition Model (ITU-R BS.2076) metadata contained in the files you provide. Dolby, Dolby Atmos and the double-D symbol are trademarks of Dolby Laboratories, Inc.; all trademarks are used for identification purposes only.",
