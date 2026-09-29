@@ -127,6 +127,9 @@ export type WorkerRequest = {
     frameCount: number;
     blockAlign: number;
     bitsPerSample: number;
+    /** true when the samples are IEEE float instead of integer PCM */
+    isFloat: boolean;
+
     channels: number;
     sampleRate: number;
   };
