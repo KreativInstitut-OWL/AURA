@@ -392,9 +392,6 @@ function Workstation() {
             <span className="hidden text-[11px] text-muted-foreground sm:inline">
               ADM Universal Renderer into Ambisonics
             </span>
-            <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-              ACN · SN3D · AmbiX
-            </span>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -624,7 +621,16 @@ function Workstation() {
 
         {/* ─────────── COLUMN 3 · OUTPUT ─────────── */}
         <div className="space-y-4">
-          <Panel title={t("Ambisonic order", "Ambisonics-Ordnung")} icon={<Layers className="size-3.5" />}>
+          <Panel
+            title={t("Ambisonic order", "Ambisonics-Ordnung")}
+            icon={<Layers className="size-3.5" />}
+            right={
+              <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                ACN · SN3D · AmbiX
+              </span>
+            }
+          >
+
             <div className="grid grid-cols-3 gap-2">
               {ORDERS.map((o) => (
                 <button
@@ -756,11 +762,12 @@ function Workstation() {
                 <CircleCheck className="mr-2 inline size-4 text-[var(--v2-valid)]" />
                 {t(`Rendered ${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s.`, `${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s gerendert.`)}
                 {clip && (
-                  <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                    {t("Sample peak (all channels)", "Sample-Peak (alle Kanäle)")}:{" "}
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                    {t("Sample peak", "Sample-Peak")}:{" "}
                     {clip.peakDb === -Infinity ? "-∞" : `${clip.peakDb > 0 ? "+" : ""}${clip.peakDb.toFixed(1)}`} dBFS
-                  </span>
+                  </p>
                 )}
+
                 {result.url ? (
                   <>
                     <p className="mt-1 text-[11px] text-muted-foreground">
