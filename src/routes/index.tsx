@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { BinauralDeck, type PreviewAudio } from "@/components/adm/BinauralDeck";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PrivacyDialog, usePrivacyDialog } from "@/components/PrivacyDialog";
 import { useLang } from "@/lib/i18n";
@@ -25,13 +24,6 @@ import { SpatialViewer } from "@/components/adm/SpatialViewer";
 import { Progress } from "@/components/ui/progress";
 import { analyseAdm, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
-import type { DecodeRequest, DecodeResponse } from "@/engine/decode.worker";
-import {
-  PREVIEW_MAX_SECONDS,
-  previewOrderFor,
-  type PreviewRequest,
-  type PreviewResponse,
-} from "@/engine/preview-types";
 import { channelCount } from "@/engine/sh";
 
 import type {
@@ -46,17 +38,17 @@ import type {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "AURA — Atmos Universal Renderer into Ambisonics" },
+      { title: "AURA — ADM Universal Renderer into Ambisonics" },
       {
         name: "description",
         content:
-          "AURA inspects Dolby Atmos ADM masters and renders them straight into 3rd, 5th or 7th order AmbiX, with binaural audition before download.",
+          "AURA inspects ADM (ITU-R BS.2076) masters and renders them straight into 3rd, 5th or 7th order AmbiX — entirely inside your browser.",
       },
-      { property: "og:title", content: "AURA — Atmos Universal Renderer into Ambisonics" },
+      { property: "og:title", content: "AURA — ADM Universal Renderer into Ambisonics" },
       {
         property: "og:description",
         content:
-          "Stream map, spatial monitoring and AmbiX export with in-browser binaural audition — entirely client-side.",
+          "Stream map, spatial monitoring and AmbiX export from ADM masters — entirely client-side, nothing is uploaded.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -66,9 +58,6 @@ export const Route = createFileRoute("/")({
 });
 
 const ORDERS = [3, 5, 7] as const;
-
-/** memory ceiling for one audition window of the rendered file */
-const AUDITION_BUDGET_BYTES = 400 * 1024 * 1024;
 
 type Order = (typeof ORDERS)[number];
 
@@ -173,29 +162,14 @@ function Workstation() {
   const [result, setResult] = useState<{ url: string; name: string } | null>(null);
   const [playhead, setPlayhead] = useState(0);
 
-  const [preview, setPreview] = useState<PreviewAudio | null>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const [previewPct, setPreviewPct] = useState(0);
-  const [renderedBlob, setRenderedBlob] = useState<Blob | null>(null);
-  const [windowLoading, setWindowLoading] = useState(false);
-
   /** channel → loudspeaker assignment, only used for files without ADM metadata */
   const [channelMap, setChannelMap] = useState<string[] | null>(null);
 
   const workerRef = useRef<Worker | null>(null);
-  const previewWorkerRef = useRef<Worker | null>(null);
-  const decodeWorkerRef = useRef<Worker | null>(null);
   const outChannels = channelCount(order);
   const needsChannelMap = !!container && (!container.axml || container.chna.length === 0);
 
-  useEffect(
-    () => () => {
-      workerRef.current?.terminate();
-      previewWorkerRef.current?.terminate();
-      decodeWorkerRef.current?.terminate();
-    },
-    [],
-  );
+  useEffect(() => () => workerRef.current?.terminate(), []);
 
   // Idle trajectory animation
   useEffect(() => {
@@ -219,8 +193,6 @@ function Workstation() {
       setAnalysis(null);
       setContainer(null);
       setResult(null);
-      setPreview(null);
-      setRenderedBlob(null);
       setChannelMap(null);
       setFile(f);
       setAnalysing(true);
@@ -251,64 +223,6 @@ function Workstation() {
     }
   }, [container, profile, channelMap]);
 
-  /**
-   * Auditions the finished AmbiX file itself: the leading 16 (3rd order) or
-   * 25 (4th order) ACN channels are decoded in a memory-sized window, so a
-   * long render stays playable end to end by moving the window.
-   */
-  const auditionRendered = useCallback(
-    (blob: Blob, startSec: number, renderOrder: number, rate: number, totalSec: number) => {
-      decodeWorkerRef.current?.terminate();
-      const worker = new Worker(new URL("../engine/decode.worker.ts", import.meta.url), {
-        type: "module",
-      });
-      decodeWorkerRef.current = worker;
-      setWindowLoading(true);
-
-      const pOrder = previewOrderFor(renderOrder);
-      const keep = channelCount(pOrder);
-      const maxFrames = Math.floor(AUDITION_BUDGET_BYTES / (keep * 4));
-
-      worker.onerror = (ev) => {
-        setError(`Could not read the rendered file: ${ev.message || "unknown error"}`);
-        setWindowLoading(false);
-      };
-      worker.onmessage = (ev: MessageEvent<DecodeResponse>) => {
-        const msg = ev.data;
-        if (msg.type === "done") {
-          setPreview({
-            channels: msg.channels,
-            sampleRate: msg.sampleRate,
-            frameCount: msg.frameCount,
-            order: pOrder,
-            renderOrder,
-            truncated: msg.frameCount < msg.totalFrames,
-            startSec: msg.startFrame / msg.sampleRate,
-            fullDurationSec: msg.totalFrames / msg.sampleRate,
-            source: "render",
-          });
-          setWindowLoading(false);
-          worker.terminate();
-          decodeWorkerRef.current = null;
-        } else if (msg.type === "error") {
-          setError(msg.message);
-          setWindowLoading(false);
-          worker.terminate();
-          decodeWorkerRef.current = null;
-        }
-      };
-
-      const req: DecodeRequest = {
-        type: "decode",
-        blob,
-        startFrame: Math.max(0, Math.round(Math.min(startSec, totalSec) * rate)),
-        maxFrames,
-        maxChannels: keep,
-      };
-      worker.postMessage(req);
-    },
-    [],
-  );
 
 
 
@@ -363,25 +277,20 @@ function Workstation() {
         setRendering(false);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
-        setResult({ url: !handle && msg.blob ? URL.createObjectURL(msg.blob) : "", name: outName });
+        const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
+        setResult({ url, name: outName });
+        if (url) {
+          // Start the download right away so the file lands in Downloads.
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = outName;
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
         worker.terminate();
         workerRef.current = null;
-        // Audition the finished file instead of the short in-memory preview.
-        const rate = analysis.container.format.sampleRate;
-        const totalSec = analysis.container.frameCount / rate;
-        if (msg.blob) {
-          setRenderedBlob(msg.blob);
-          auditionRendered(msg.blob, 0, order, rate, totalSec);
-        } else if (handle) {
-          void handle
-            .getFile()
-            .then((f) => {
-              setRenderedBlob(f);
-              auditionRendered(f, 0, order, rate, totalSec);
-            })
-            .catch(() => undefined);
-        }
-
       } else {
         setError(msg.message);
         setRendering(false);
@@ -414,73 +323,6 @@ function Workstation() {
     setRendering(false);
   };
 
-  const buildPreview = useCallback(() => {
-    if (!file || !analysis) return;
-    previewWorkerRef.current?.terminate();
-    setPreview(null);
-    setPreviewPct(0);
-    setPreviewing(true);
-
-    const worker = new Worker(new URL("../engine/preview.worker.ts", import.meta.url), {
-      type: "module",
-    });
-    previewWorkerRef.current = worker;
-    const previewOrder = previewOrderFor(order);
-    const rate = analysis.container.format.sampleRate;
-
-    worker.onerror = (ev) => {
-      setError(`Preview failed: ${ev.message || "unknown error"}`);
-      setPreviewing(false);
-    };
-
-    worker.onmessage = (ev: MessageEvent<PreviewResponse>) => {
-      const msg = ev.data;
-      if (msg.type === "progress") {
-        setPreviewPct(msg.totalFrames > 0 ? (msg.framesDone / msg.totalFrames) * 100 : 0);
-      } else if (msg.type === "done") {
-        setPreview({
-          channels: msg.channels,
-          sampleRate: msg.sampleRate,
-          frameCount: msg.frameCount,
-          order: msg.order,
-          renderOrder: order,
-          truncated: msg.truncated,
-          startSec: 0,
-          fullDurationSec: analysis.container.frameCount / rate,
-          source: "preview",
-        });
-
-        setPreviewing(false);
-        worker.terminate();
-        previewWorkerRef.current = null;
-      } else {
-        setError(msg.message);
-        setPreviewing(false);
-        worker.terminate();
-        previewWorkerRef.current = null;
-      }
-    };
-
-    const req: PreviewRequest = {
-      type: "preview",
-      file,
-      sources: analysis.sources,
-      container: {
-        dataOffset: analysis.container.dataOffset,
-        frameCount: analysis.container.frameCount,
-        blockAlign: analysis.container.format.blockAlign,
-        bitsPerSample: analysis.container.format.bitsPerSample,
-        channels: analysis.container.format.channels,
-        sampleRate: rate,
-      },
-      order: previewOrder,
-      lfeMode,
-      masterGain: Math.pow(10, gainDb / 20),
-      startSample: 0,
-      maxFrames: Math.round(PREVIEW_MAX_SECONDS * rate),
-    };
-    worker.postMessage(req);
-  }, [analysis, file, gainDb, lfeMode, order]);
 
   const total = analysis?.container.frameCount ?? 0;
   const pct = total > 0 ? (framesDone / total) * 100 : 0;
@@ -501,7 +343,7 @@ function Workstation() {
             <Radio className="size-4 text-[var(--v2-valid)]" />
             <span className="text-sm font-semibold tracking-tight">AURA</span>
             <span className="hidden text-[11px] text-muted-foreground sm:inline">
-              Atmos Universal Renderer into Ambisonics
+              ADM Universal Renderer into Ambisonics
             </span>
             <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
               ACN · SN3D · AmbiX
@@ -633,14 +475,8 @@ function Workstation() {
             >
               <ChannelMapEditor
                 map={channelMap}
-                onChange={(next) => {
-                  setChannelMap(next);
-                  setPreview(null);
-                }}
-                onReset={() => {
-                  setChannelMap(defaultChannelMap(container!.format.channels));
-                  setPreview(null);
-                }}
+                onChange={setChannelMap}
+                onReset={() => setChannelMap(defaultChannelMap(container!.format.channels))}
                 disabled={rendering}
               />
             </Panel>
@@ -836,42 +672,27 @@ function Workstation() {
                 <CircleCheck className="mr-2 inline size-4 text-[var(--v2-valid)]" />
                 {t(`Rendered ${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s.`, `${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s gerendert.`)}
                 {result.url ? (
-                  <a
-                    href={result.url}
-                    download={result.name}
-                    className="mt-2 flex items-center gap-2 font-mono text-[11px] underline"
-                  >
-                    <Download className="size-3" /> {result.name}
-                  </a>
+                  <>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {t("The download started automatically.", "Der Download wurde automatisch gestartet.")}
+                    </p>
+                    <a
+                      href={result.url}
+                      download={result.name}
+                      className="mt-2 flex items-center gap-2 font-mono text-[11px] underline"
+                    >
+                      <Download className="size-3" /> {t("Save again", "Erneut speichern")}: {result.name}
+                    </a>
+                  </>
                 ) : (
                   <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                    {t("Written straight to disk:", "Direkt auf die Festplatte geschrieben:")} {result.name}
+                    {t("Saved to the location you chose:", "Am gewählten Speicherort abgelegt:")} {result.name}
                   </p>
                 )}
               </div>
             )}
           </Panel>
 
-          <BinauralDeck
-            preview={preview}
-            generating={previewing}
-            progress={previewPct}
-            canGenerate={!!analysis && !rendering}
-            onGenerate={buildPreview}
-            windowLoading={windowLoading}
-            onSeekWindow={
-              renderedBlob && analysis
-                ? (sec) =>
-                    auditionRendered(
-                      renderedBlob,
-                      sec,
-                      order,
-                      analysis.container.format.sampleRate,
-                      analysis.container.frameCount / analysis.container.format.sampleRate,
-                    )
-                : undefined
-            }
-          />
 
         </div>
       </div>
@@ -880,14 +701,20 @@ function Workstation() {
         <p className="mx-auto max-w-2xl text-foreground/80">
           <ShieldCheck className="mr-1.5 inline size-3.5 text-[var(--v2-valid)]" />
           {t(
-            "Your audio files never leave your computer. All Atmos parsing, spatial math, binaural simulation and Ambisonic encoding happen directly on your CPU via browser Web Workers. No files are uploaded to any server.",
-            "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Atmos-Parsing, die Raumberechnung, die Binauralsimulation und die Ambisonics-Kodierung laufen direkt auf deiner CPU in Web Workern des Browsers. Es werden keine Dateien auf einen Server hochgeladen.",
+            "Your audio files never leave your computer. All parsing, spatial math and Ambisonic encoding happen directly on your CPU inside this browser tab. No files are uploaded to any server.",
+            "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Parsing, die Raumberechnung und die Ambisonics-Kodierung laufen direkt auf deiner CPU in diesem Browser-Tab. Es werden keine Dateien auf einen Server hochgeladen.",
           )}
         </p>
         <p>
           {t(
-            "AmbiX output: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN order, SN3D normalization, RF64 promotion past 4 GB. Binaural audition: HOAST SH-HRIR set, IEM Graz.",
-            "AmbiX-Ausgabe: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN-Reihenfolge, SN3D-Normalisierung, RF64 ab 4 GB. Binaurales Vorhören: HOAST-SH-HRIR-Satz, IEM Graz.",
+            "AmbiX output: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN order, SN3D normalization, RF64 promotion past 4 GB.",
+            "AmbiX-Ausgabe: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN-Reihenfolge, SN3D-Normalisierung, RF64 ab 4 GB.",
+          )}
+        </p>
+        <p className="mx-auto max-w-3xl">
+          {t(
+            "AURA is an independent tool and is not affiliated with, endorsed by or certified by Dolby Laboratories, Inc. It reads the open Audio Definition Model (ITU-R BS.2076) metadata contained in the files you provide. Dolby, Dolby Atmos and the double-D symbol are trademarks of Dolby Laboratories, Inc.; all trademarks are used for identification purposes only.",
+            "AURA ist ein unabhängiges Werkzeug und steht in keiner Verbindung zu Dolby Laboratories, Inc., wird von dort weder unterstützt noch zertifiziert. Es liest die offenen Audio-Definition-Model-Metadaten (ITU-R BS.2076) der von dir bereitgestellten Dateien. Dolby, Dolby Atmos und das Doppel-D-Symbol sind Marken von Dolby Laboratories, Inc.; alle Marken werden ausschließlich zu Identifikationszwecken genannt.",
           )}
         </p>
       </footer>
