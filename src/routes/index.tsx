@@ -345,14 +345,16 @@ function Workstation() {
         frameCount: analysis.container.frameCount,
         blockAlign: analysis.container.format.blockAlign,
         bitsPerSample: analysis.container.format.bitsPerSample,
+        isFloat: analysis.container.format.formatTag === 3,
         channels: analysis.container.format.channels,
         sampleRate: analysis.container.format.sampleRate,
       },
-      config: { order, lfeMode, masterGain: Math.pow(10, gainDb / 20) },
+      config: { order, lfeRouting, lfeGain, masterGain: Math.pow(10, gainDb / 20) },
       handle,
     };
     worker.postMessage(req);
-  }, [analysis, file, gainDb, lfeMode, order, outChannels]);
+  }, [analysis, file, gainDb, lfeRouting, lfeGain, order, outChannels, profile]);
+
 
   const stopRender = () => {
     workerRef.current?.terminate();
