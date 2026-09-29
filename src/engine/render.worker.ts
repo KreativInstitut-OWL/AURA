@@ -93,10 +93,10 @@ async function render(req: WorkerRequest) {
   const { file, config, container } = req;
   const M = channelCount(config.order);
   const totalFrames = container.frameCount;
-  const decode = makeDecoder(container.bitsPerSample);
+  const decode = makeDecoder(container.bitsPerSample, container.isFloat);
   const started = performance.now();
 
-  const sources = req.sources.filter((s) => !(s.isLFE && config.lfeMode === "exclude"));
+  const sources = req.sources.filter((s) => !(s.isLFE && config.lfeRouting === "off"));
   const beds = sources.filter((s) => s.kind === "bed" && !s.isLFE);
   const lfes = sources.filter((s) => s.isLFE);
   const objects = sources.filter((s) => s.kind === "object");
@@ -107,7 +107,21 @@ async function render(req: WorkerRequest) {
     bedCoeffs.set(b, encodeDirection(config.order, b.azimuth, b.elevation, new Float32Array(M)));
   }
   const lfeFilters = new Map<RenderSource, Butterworth4>();
-  for (const l of lfes) lfeFilters.set(l, new Butterworth4(120, container.sampleRate));
+  // Spatial placement of the low-passed LFE, chosen by the routing setting.
+  const lfeCoeffs = new Map<RenderSource, Float32Array>();
+  for (const l of lfes) {
+    lfeFilters.set(l, new Butterworth4(120, container.sampleRate));
+    const C = new Float32Array(M);
+    if (config.lfeRouting === "position") {
+      encodeDirection(config.order, l.azimuth, l.elevation, C);
+    } else {
+      C[0] = 1; // W
+      // Downward first-order cardioid: W + Z with Z pointing at the floor.
+      if (config.lfeRouting === "down" && M > 2) C[2] = -1;
+    }
+    lfeCoeffs.set(l, C);
+  }
+
 
   // Output sink
   let writable: FileSystemWritableFileStream | null = null;
