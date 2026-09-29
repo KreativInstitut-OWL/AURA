@@ -226,6 +226,8 @@ async function render(req: WorkerRequest) {
       blob: null,
       bytesWritten,
       elapsedMs: performance.now() - started,
+      maxPeak,
+      maxPeakChannel,
     });
   } else {
     post({
@@ -233,6 +235,8 @@ async function render(req: WorkerRequest) {
       blob: new Blob(blobParts, { type: "audio/wav" }),
       bytesWritten,
       elapsedMs: performance.now() - started,
+      maxPeak,
+      maxPeakChannel,
     });
   }
 }
