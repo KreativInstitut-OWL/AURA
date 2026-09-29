@@ -233,6 +233,8 @@ function Workstation() {
     setFramesDone(0);
     setBytesWritten(0);
 
+    setClip(null);
+
     const baseName = file.name.replace(/\.[^.]+$/, "");
     const hasLfe = analysis.sources.some((s) => s.isLFE);
     const lfeTag = !hasLfe
@@ -244,7 +246,12 @@ function Workstation() {
           : lfeMode === "inject10"
             ? "_LFE+10dB"
             : "_noLFE";
-    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}_AURA.wav`;
+    // Only tag the gain when it differs from unity.
+    const gainTag =
+      gainDb === 0
+        ? ""
+        : `_gain${gainDb > 0 ? "+" : "-"}${Math.abs(gainDb).toFixed(1).replace(/\.0$/, "")}dB`;
+    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}${gainTag}_AURA.wav`;
 
     let handle: FileSystemFileHandle | null = null;
     const picker = (
