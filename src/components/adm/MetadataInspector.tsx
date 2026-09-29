@@ -6,6 +6,10 @@ import { Card } from "@/components/ui/card";
 import { rad2deg } from "@/engine/sh";
 import type { AnalysisResult, TrackDiagnostic } from "@/engine/types";
 
+/** Raw chunk map and axml viewer were debugging aids; flip to true to bring them back. */
+const SHOW_DEBUG_BLOCKS = false;
+
+
 const TAG_TONES = {
   valid: "border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 text-[var(--v2-valid)]",
   accent: "border-accent/40 bg-accent/10 text-accent",
