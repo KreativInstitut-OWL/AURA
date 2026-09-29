@@ -648,12 +648,12 @@ function Workstation() {
 
           <Panel title={t("LFE routing", "LFE-Routing")}>
             <div className="flex flex-wrap gap-2">
-              {LFE_MODES.map(([mode, labelEn, labelDe, hintEn, hintDe]) => (
+              {LFE_ROUTINGS.map(([mode, labelEn, labelDe, hintEn, hintDe]) => (
                 <Pill
                   key={mode}
-                  active={lfeMode === mode}
+                  active={lfeRouting === mode}
                   disabled={rendering}
-                  onClick={() => setLfeMode(mode)}
+                  onClick={() => setLfeRouting(mode)}
                 >
                   {t(labelEn, labelDe)}
                   <span className="ml-1.5 font-mono text-[9px] opacity-60">{t(hintEn, hintDe)}</span>
@@ -661,16 +661,50 @@ function Workstation() {
               ))}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              {t(
-                "LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN 0 (W) only, never encoded to a direction.",
-                "LFE ist omnidirektional: Ein 120-Hz-Butterworth-Tiefpass 4. Ordnung wird nur in ACN 0 (W) summiert und nie in eine Richtung kodiert.",
-              )}
+              {lfeRouting === "omni" &&
+                t(
+                  "A 120 Hz 4th-order Butterworth low-pass is summed into ACN 0 (W) only — equal pressure in every direction.",
+                  "Ein 120-Hz-Butterworth-Tiefpass 4. Ordnung wird nur in ACN 0 (W) summiert — gleicher Druck in alle Richtungen.",
+                )}
+              {lfeRouting === "down" &&
+                t(
+                  "First-order downward cardioid (W + Z): full level at the floor, an acoustic null at the ceiling, so height speakers stay free of sub energy.",
+                  "Nach unten gerichtete Niere 1. Ordnung (W + Z): voller Pegel am Boden, akustische Null an der Decke — Höhenlautsprecher bleiben frei von Subbass.",
+                )}
+              {lfeRouting === "position" &&
+                t(
+                  `Encoded at the LFE loudspeaker coordinates of the active profile (${profile === "itu" ? "ITU-R BS.2051 catalogue angles" : "0° azimuth, −30° elevation"}).`,
+                  `Kodiert an den LFE-Lautsprecherkoordinaten des aktiven Profils (${profile === "itu" ? "ITU-R-BS.2051-Katalogwinkel" : "0° Azimut, −30° Elevation"}).`,
+                )}
+              {lfeRouting === "off" &&
+                t("LFE channels are excluded from the render.", "LFE-Kanäle werden nicht gerendert.")}
             </p>
           </Panel>
 
+          {lfeRouting !== "off" && (
+            <Panel title={t("LFE level", "LFE-Pegel")}>
+              <div className="flex flex-wrap gap-2">
+                {LFE_GAINS.map(([g, label, hintEn, hintDe]) => (
+                  <Pill key={g} active={lfeGain === g} disabled={rendering} onClick={() => setLfeGain(g)}>
+                    {label}
+                    <span className="ml-1.5 font-mono text-[9px] opacity-60">{t(hintEn, hintDe)}</span>
+                  </Pill>
+                ))}
+              </div>
+            </Panel>
+          )}
+
           <Panel
             title={t("Master gain", "Gesamtpegel")}
-            right={<span className="font-mono text-[10px]">{gainDb.toFixed(1)} dB</span>}
+            right={
+              <span
+                onDoubleClick={() => !rendering && setGainDb(0)}
+                title={t("Double-click to reset to 0 dB", "Doppelklick setzt auf 0 dB zurück")}
+                className="cursor-pointer select-none font-mono text-[10px]"
+              >
+                {gainDb.toFixed(1)} dB
+              </span>
+            }
           >
             <input
               type="range"
@@ -680,9 +714,12 @@ function Workstation() {
               value={gainDb}
               disabled={rendering}
               onChange={(e) => setGainDb(Number(e.target.value))}
+              onDoubleClick={() => !rendering && setGainDb(0)}
+              title={t("Double-click to reset to 0 dB", "Doppelklick setzt auf 0 dB zurück")}
               className="h-1 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-[var(--v2-valid)]"
             />
           </Panel>
+
 
           <Panel title={t("Render & export", "Rendern & Export")} icon={<Download className="size-3.5" />}>
             {!rendering ? (
