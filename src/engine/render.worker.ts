@@ -125,6 +125,8 @@ async function render(req: WorkerRequest) {
 
   let frame = 0;
   let lastPost = 0;
+  let maxPeak = 0;
+  let maxPeakChannel = 0;
   while (frame < totalFrames) {
     const frames = Math.min(FRAME_BLOCK, totalFrames - frame);
     const byteStart = container.dataOffset + frame * container.blockAlign;
