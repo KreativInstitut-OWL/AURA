@@ -182,7 +182,7 @@ async function render(req: WorkerRequest) {
       }
     }
 
-    // Meters
+    // Meters — also track the global maximum before 24-bit quantisation clamps it.
     for (let l = 0; l < M; l++) {
       let pk = 0;
       const base = l * frames;
@@ -191,6 +191,10 @@ async function render(req: WorkerRequest) {
         if (a > pk) pk = a;
       }
       peaks[l] = pk;
+      if (pk > maxPeak) {
+        maxPeak = pk;
+        maxPeakChannel = l;
+      }
     }
 
     packInt24(planar, M, frames, outBytes);
@@ -207,6 +211,8 @@ async function render(req: WorkerRequest) {
         peaks: new Float32Array(peaks),
         bytesWritten,
         elapsedMs: now - started,
+        maxPeak,
+        maxPeakChannel,
       });
     }
   }
