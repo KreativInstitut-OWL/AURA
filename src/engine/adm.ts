@@ -31,7 +31,7 @@ export const DOLBY_BED_LAYOUT: Record<string, BedGeometry> = {
   L: { az: 30, el: 0, label: "L" },
   R: { az: -30, el: 0, label: "R" },
   C: { az: 0, el: 0, label: "C" },
-  LFE: { az: 0, el: -90, label: "LFE" },
+  LFE: { az: 0, el: -30, label: "LFE" },
   Lw: { az: 50, el: 0, label: "Lw" },
   Rw: { az: -50, el: 0, label: "Rw" },
   Lss: { az: 100, el: 0, label: "Lss" },

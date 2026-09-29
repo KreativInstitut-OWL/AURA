@@ -86,14 +86,22 @@ export interface AnalysisResult {
   diagnostics: TrackDiagnostic[];
 }
 
-export type LfeMode = "inject" | "inject0" | "inject10" | "exclude";
+/**
+ * How the low-passed LFE is placed in the ambisonic field.
+ * "omni"     – ACN 0 (W) only, equal pressure in every direction
+ * "down"     – first-order downward cardioid (W + Z), null at the ceiling
+ * "position" – encoded at the LFE loudspeaker coordinates of the active profile
+ * "off"      – LFE excluded entirely
+ */
+export type LfeRouting = "omni" | "down" | "position" | "off";
 
-/** Linear gain applied to the low-passed LFE before it is summed into ACN 0 (W). */
-export const LFE_MODE_GAIN: Record<LfeMode, number> = {
-  inject: Math.SQRT1_2, // -3 dB
-  inject0: 1, // 0 dB unity
-  inject10: Math.pow(10, 10 / 20), // +10 dB Dolby subwoofer calibration
-  exclude: 0,
+/** Level of the low-passed LFE, independent of the routing choice. */
+export type LfeGain = "minus3" | "unity" | "plus10";
+
+export const LFE_GAIN_VALUE: Record<LfeGain, number> = {
+  minus3: Math.SQRT1_2, // -3 dB acoustic power match
+  unity: 1, // 0 dB
+  plus10: Math.pow(10, 10 / 20), // +10 dB Dolby subwoofer calibration
 };
 
 /**
@@ -104,9 +112,11 @@ export type BedProfile = "dolby" | "itu";
 
 export interface RenderConfig {
   order: 3 | 5 | 7;
-  lfeMode: LfeMode;
+  lfeRouting: LfeRouting;
+  lfeGain: LfeGain;
   masterGain: number;
 }
+
 
 export type WorkerRequest = {
   type: "render";
