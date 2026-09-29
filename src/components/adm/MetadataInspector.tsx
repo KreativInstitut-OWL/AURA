@@ -277,7 +277,23 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
           )}
 
 
-          {/* axml */}
+          {/* Diagnostics export stays available even with the raw views retired */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => void copy("report", buildReport(analysis))}
+              className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] text-primary hover:bg-primary/20"
+            >
+              <Copy className="size-3" /> {t("Copy diagnostics", "Diagnose kopieren")}
+            </button>
+            {copied && (
+              <span className="self-center font-mono text-[11px] text-muted-foreground">
+                {copied === "failed" ? t("copy failed", "Kopieren fehlgeschlagen") : t("copied", "kopiert")}
+              </span>
+            )}
+          </div>
+
+          {/* Raw axml view — retired from the UI, kept for future debugging */}
+          {SHOW_DEBUG_BLOCKS && (
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -292,17 +308,6 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                 >
                   <Copy className="size-3" /> {t("Copy axml", "axml kopieren")}
                 </button>
-                <button
-                  onClick={() => void copy("report", buildReport(analysis))}
-                  className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] text-primary hover:bg-primary/20"
-                >
-                  <Copy className="size-3" /> {t("Copy diagnostics", "Diagnose kopieren")}
-                </button>
-                {copied && (
-                  <span className="self-center font-mono text-[11px] text-muted-foreground">
-                    {copied === "failed" ? t("copy failed", "Kopieren fehlgeschlagen") : t("copied", "kopiert")}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -330,6 +335,7 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                 : (container.axml ?? t("No axml chunk in this file.", "Kein axml-Chunk in dieser Datei.")).slice(0, 20000)}
             </pre>
           </div>
+          )}
         </div>
       )}
     </Card>
