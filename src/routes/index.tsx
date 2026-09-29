@@ -727,6 +727,36 @@ function Workstation() {
                 )}
               </div>
             )}
+
+            {result && clip && (
+              clip.peakDb > 0 ? (
+                <div className="mt-3 rounded-lg border border-accent/60 bg-accent/10 p-3 text-xs">
+                  <TriangleAlert className="mr-2 inline size-4 text-accent" />
+                  {t(
+                    `Clipping detected: peak reached +${clip.peakDb.toFixed(1)} dBFS on ACN ${clip.channel}. The 24-bit output was limited.`,
+                    `Übersteuerung erkannt: Spitzenwert +${clip.peakDb.toFixed(1)} dBFS auf ACN ${clip.channel}. Die 24-Bit-Ausgabe wurde beschnitten.`,
+                  )}
+                  <button
+                    onClick={() => {
+                      setGainDb(clip.suggestedGain);
+                      setPendingRerender(true);
+                    }}
+                    disabled={rendering}
+                    className="mt-2 w-full rounded-lg bg-foreground px-3 py-2 text-[11px] font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {t(
+                      `Apply suggested gain (${clip.suggestedGain.toFixed(1)} dB) & re-render`,
+                      `Vorgeschlagenen Gain (${clip.suggestedGain.toFixed(1)} dB) anwenden & neu rendern`,
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                  {t("Peak", "Spitzenwert")}: {clip.peakDb === -Infinity ? "-∞" : clip.peakDb.toFixed(1)} dBFS ·{" "}
+                  {t("clean headroom", "sauberer Headroom")}
+                </p>
+              )
+            )}
           </Panel>
 
 
