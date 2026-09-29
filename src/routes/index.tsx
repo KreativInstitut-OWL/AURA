@@ -160,7 +160,9 @@ function Workstation() {
   const [dragging, setDragging] = useState(false);
 
   const [order, setOrder] = useState<Order>(3);
-  const [lfeMode, setLfeMode] = useState<LfeMode>("inject");
+  const [lfeRouting, setLfeRouting] = useState<LfeRouting>("omni");
+  const [lfeGain, setLfeGain] = useState<LfeGain>("minus3");
+
   const [gainDb, setGainDb] = useState(0);
 
   const [rendering, setRendering] = useState(false);
