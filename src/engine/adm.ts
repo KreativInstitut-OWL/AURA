@@ -380,7 +380,7 @@ export function analyseAdm(
   const diagnostics: TrackDiagnostic[] = [];
   let programmeName: string | null = null;
 
-  if (container.hasDbmd) warnings.push("Proprietary 'dbmd' chunk found — ignored by design.");
+  // A proprietary 'dbmd' chunk is ignored by design — not worth a warning.
 
   if (!container.axml || container.chna.length === 0) {
     const nCh = container.format.channels;
