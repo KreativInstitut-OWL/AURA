@@ -30,7 +30,9 @@ import type {
   AnalysisResult,
   BedProfile,
   ContainerInfo,
-  LfeMode,
+  LfeGain,
+  LfeRouting,
+
   WorkerRequest,
   WorkerResponse,
 } from "@/engine/types";
@@ -61,12 +63,19 @@ const ORDERS = [3, 5, 7] as const;
 
 type Order = (typeof ORDERS)[number];
 
-const LFE_MODES: [LfeMode, string, string, string, string][] = [
-  ["inject", "−3 dB", "−3 dB", "standard W injection", "Standard-W-Einspeisung"],
-  ["inject0", "0 dB", "0 dB", "unity", "Unity"],
-  ["inject10", "+10 dB", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
-  ["exclude", "Off", "Aus", "LFE excluded", "LFE ausgeschlossen"],
+const LFE_ROUTINGS: [LfeRouting, string, string, string, string][] = [
+  ["omni", "Omnidirectional", "Omnidirektional", "W only", "nur W"],
+  ["down", "Downward", "Nach unten", "W + Z cardioid", "W-+-Z-Niere"],
+  ["position", "Speaker position", "Lautsprecher-Position", "encoded", "kodiert"],
+  ["off", "Off", "Aus", "LFE excluded", "LFE ausgeschlossen"],
 ];
+
+const LFE_GAINS: [LfeGain, string, string, string][] = [
+  ["minus3", "−3 dB", "standard", "Standard"],
+  ["unity", "0 dB", "unity", "Unity"],
+  ["plus10", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
+];
+
 
 const fmtBytes = (b: number) => {
   if (b < 1024) return `${b} B`;
