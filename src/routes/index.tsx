@@ -26,10 +26,14 @@ import { analyseAdm, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine
 import { parseContainer } from "@/engine/container";
 import { channelCount } from "@/engine/sh";
 
+import { ENVELOPE_BIN_SEC } from "@/engine/types";
 import type {
   AnalysisResult,
   BedProfile,
   ContainerInfo,
+  EnvelopeRequest,
+  EnvelopeResponse,
+  LevelState,
   LfeGain,
   LfeRouting,
 
