@@ -183,20 +183,23 @@ export function SpatialViewer({
 
         const now = positionAt(s.points, head);
         const p = project(now.azimuth, now.elevation, Math.min(now.distance || 1, 1.2));
-        ctx.globalAlpha = 1;
+        const lv = levelOf(s.channelIndex);
+        const core = lv < 0 ? 5 : 2.5 + lv * 6;
+        ctx.globalAlpha = lv < 0 ? 1 : 0.35 + lv * 0.65;
         ctx.fillStyle = cAccent;
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, 5, 0, Math.PI * 2);
+        ctx.arc(p.sx, p.sy, core, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 0.2;
+        ctx.globalAlpha = lv < 0 ? 0.2 : 0.08 + lv * 0.22;
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, 11, 0, Math.PI * 2);
+        ctx.arc(p.sx, p.sy, core * 2.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         if (i < 14) {
           ctx.fillStyle = cMuted;
           ctx.fillText(s.name.slice(0, 14), p.sx, p.sy - 12);
         }
+
       });
 
       raf = requestAnimationFrame(draw);
