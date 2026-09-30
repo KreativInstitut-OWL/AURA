@@ -6,7 +6,7 @@ import type { RenderSource, WorkerRequest, WorkerResponse } from "./types";
 
 const FRAME_BLOCK = 2048; // processing frames per pass
 const RAMP = 64; // sub-block coefficient ramp interval
-import { LFE_MODE_GAIN } from "./types";
+import { LFE_GAIN_VALUE } from "./types";
 
 /** 4th-order Butterworth low-pass (two cascaded biquads), direct form I. */
 class Butterworth4 {
@@ -48,7 +48,18 @@ class Butterworth4 {
   }
 }
 
-function makeDecoder(bits: number) {
+function makeDecoder(bits: number, isFloat: boolean) {
+  if (isFloat) {
+    if (bits === 32) {
+      return (bytes: Uint8Array, byteOffset: number) =>
+        new DataView(bytes.buffer, bytes.byteOffset + byteOffset, 4).getFloat32(0, true);
+    }
+    if (bits === 64) {
+      return (bytes: Uint8Array, byteOffset: number) =>
+        new DataView(bytes.buffer, bytes.byteOffset + byteOffset, 8).getFloat64(0, true);
+    }
+    throw new Error(`Unsupported float bit depth: ${bits}`);
+  }
   if (bits === 24) {
     return (bytes: Uint8Array, byteOffset: number) => {
       const u = bytes[byteOffset]! | (bytes[byteOffset + 1]! << 8) | (bytes[byteOffset + 2]! << 16);
@@ -74,6 +85,7 @@ function makeDecoder(bits: number) {
   throw new Error(`Unsupported bit depth: ${bits}`);
 }
 
+
 const post = (msg: WorkerResponse, transfer: Transferable[] = []) =>
   (self as unknown as Worker).postMessage(msg, transfer);
 
@@ -81,10 +93,10 @@ async function render(req: WorkerRequest) {
   const { file, config, container } = req;
   const M = channelCount(config.order);
   const totalFrames = container.frameCount;
-  const decode = makeDecoder(container.bitsPerSample);
+  const decode = makeDecoder(container.bitsPerSample, container.isFloat);
   const started = performance.now();
 
-  const sources = req.sources.filter((s) => !(s.isLFE && config.lfeMode === "exclude"));
+  const sources = req.sources.filter((s) => !(s.isLFE && config.lfeRouting === "off"));
   const beds = sources.filter((s) => s.kind === "bed" && !s.isLFE);
   const lfes = sources.filter((s) => s.isLFE);
   const objects = sources.filter((s) => s.kind === "object");
@@ -95,7 +107,21 @@ async function render(req: WorkerRequest) {
     bedCoeffs.set(b, encodeDirection(config.order, b.azimuth, b.elevation, new Float32Array(M)));
   }
   const lfeFilters = new Map<RenderSource, Butterworth4>();
-  for (const l of lfes) lfeFilters.set(l, new Butterworth4(120, container.sampleRate));
+  // Spatial placement of the low-passed LFE, chosen by the routing setting.
+  const lfeCoeffs = new Map<RenderSource, Float32Array>();
+  for (const l of lfes) {
+    lfeFilters.set(l, new Butterworth4(120, container.sampleRate));
+    const C = new Float32Array(M);
+    if (config.lfeRouting === "position") {
+      encodeDirection(config.order, l.azimuth, l.elevation, C);
+    } else {
+      C[0] = 1; // W
+      // Downward first-order cardioid: W + Z with Z pointing at the floor.
+      if (config.lfeRouting === "down" && M > 2) C[2] = -1;
+    }
+    lfeCoeffs.set(l, C);
+  }
+
 
   // Output sink
   let writable: FileSystemWritableFileStream | null = null;
@@ -148,16 +174,22 @@ async function render(req: WorkerRequest) {
       }
     }
 
-    // --- LFE: 120 Hz low-pass, injected into W only ---
+    // --- LFE: 120 Hz low-pass, placed per the routing setting ---
     for (const l of lfes) {
       const filt = lfeFilters.get(l)!;
-      const g = (LFE_MODE_GAIN[config.lfeMode] ?? Math.SQRT1_2) * config.masterGain;
+      const C = lfeCoeffs.get(l)!;
+      const g = (LFE_GAIN_VALUE[config.lfeGain] ?? Math.SQRT1_2) * config.masterGain;
       const chOff = l.channelIndex * bytesPerSample;
       for (let f = 0; f < frames; f++) {
-        const s = filt.process(decode(raw, f * container.blockAlign + chOff));
-        planar[f] = planar[f]! + s * g;
+        const s = filt.process(decode(raw, f * container.blockAlign + chOff)) * g;
+        if (s === 0) continue;
+        for (let c = 0; c < M; c++) {
+          if (C[c] === 0) continue;
+          planar[c * frames + f] = planar[c * frames + f]! + s * C[c]!;
+        }
       }
     }
+
 
     // --- Objects: sub-block coefficient ramping ---
     for (const o of objects) {

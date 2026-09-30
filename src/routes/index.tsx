@@ -30,7 +30,9 @@ import type {
   AnalysisResult,
   BedProfile,
   ContainerInfo,
-  LfeMode,
+  LfeGain,
+  LfeRouting,
+
   WorkerRequest,
   WorkerResponse,
 } from "@/engine/types";
@@ -61,12 +63,19 @@ const ORDERS = [3, 5, 7] as const;
 
 type Order = (typeof ORDERS)[number];
 
-const LFE_MODES: [LfeMode, string, string, string, string][] = [
-  ["inject", "−3 dB", "−3 dB", "standard W injection", "Standard-W-Einspeisung"],
-  ["inject0", "0 dB", "0 dB", "unity", "Unity"],
-  ["inject10", "+10 dB", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
-  ["exclude", "Off", "Aus", "LFE excluded", "LFE ausgeschlossen"],
+const LFE_ROUTINGS: [LfeRouting, string, string, string, string][] = [
+  ["omni", "Omnidirectional", "Omnidirektional", "W only", "nur W"],
+  ["down", "Downward", "Nach unten", "W + Z cardioid", "W-+-Z-Niere"],
+  ["position", "Speaker position", "Lautsprecher-Position", "encoded", "kodiert"],
+  ["off", "Off", "Aus", "LFE excluded", "LFE ausgeschlossen"],
 ];
+
+const LFE_GAINS: [LfeGain, string, string, string][] = [
+  ["minus3", "−3 dB", "standard", "Standard"],
+  ["unity", "0 dB", "unity", "Unity"],
+  ["plus10", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
+];
+
 
 const fmtBytes = (b: number) => {
   if (b < 1024) return `${b} B`;
@@ -151,7 +160,9 @@ function Workstation() {
   const [dragging, setDragging] = useState(false);
 
   const [order, setOrder] = useState<Order>(3);
-  const [lfeMode, setLfeMode] = useState<LfeMode>("inject");
+  const [lfeRouting, setLfeRouting] = useState<LfeRouting>("omni");
+  const [lfeGain, setLfeGain] = useState<LfeGain>("minus3");
+
   const [gainDb, setGainDb] = useState(0);
 
   const [rendering, setRendering] = useState(false);
@@ -243,21 +254,19 @@ function Workstation() {
 
     const baseName = file.name.replace(/\.[^.]+$/, "");
     const hasLfe = analysis.sources.some((s) => s.isLFE);
-    const lfeTag = !hasLfe
-      ? ""
-      : lfeMode === "inject"
-        ? "_LFE-3dB"
-        : lfeMode === "inject0"
-          ? "_LFE0dB"
-          : lfeMode === "inject10"
-            ? "_LFE+10dB"
-            : "_noLFE";
+    const routeTag =
+      lfeRouting === "omni" ? "omni" : lfeRouting === "down" ? "down" : "pos";
+    const levelTag = lfeGain === "minus3" ? "-3dB" : lfeGain === "unity" ? "0dB" : "+10dB";
+    const lfeTag = !hasLfe ? "" : lfeRouting === "off" ? "_noLFE" : `_LFE${routeTag}${levelTag}`;
     // Only tag the gain when it differs from unity.
     const gainTag =
       gainDb === 0
         ? ""
         : `_gain${gainDb > 0 ? "+" : "-"}${Math.abs(gainDb).toFixed(1).replace(/\.0$/, "")}dB`;
-    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}${gainTag}_AURA.wav`;
+    // Dolby is the default geometry, so only ITU renders carry a profile tag.
+    const profileTag = profile === "itu" ? "_ITU" : "";
+    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}${gainTag}${profileTag}_AURA.wav`;
+
 
     let handle: FileSystemFileHandle | null = null;
     const picker = (
@@ -336,14 +345,16 @@ function Workstation() {
         frameCount: analysis.container.frameCount,
         blockAlign: analysis.container.format.blockAlign,
         bitsPerSample: analysis.container.format.bitsPerSample,
+        isFloat: analysis.container.format.formatTag === 3,
         channels: analysis.container.format.channels,
         sampleRate: analysis.container.format.sampleRate,
       },
-      config: { order, lfeMode, masterGain: Math.pow(10, gainDb / 20) },
+      config: { order, lfeRouting, lfeGain, masterGain: Math.pow(10, gainDb / 20) },
       handle,
     };
     worker.postMessage(req);
-  }, [analysis, file, gainDb, lfeMode, order, outChannels]);
+  }, [analysis, file, gainDb, lfeRouting, lfeGain, order, outChannels, profile]);
+
 
   const stopRender = () => {
     workerRef.current?.terminate();
@@ -380,9 +391,6 @@ function Workstation() {
             <span className="text-sm font-semibold tracking-tight">AURA</span>
             <span className="hidden text-[11px] text-muted-foreground sm:inline">
               ADM Universal Renderer into Ambisonics
-            </span>
-            <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-              ACN · SN3D · AmbiX
             </span>
           </div>
 
@@ -613,7 +621,16 @@ function Workstation() {
 
         {/* ─────────── COLUMN 3 · OUTPUT ─────────── */}
         <div className="space-y-4">
-          <Panel title={t("Ambisonic order", "Ambisonics-Ordnung")} icon={<Layers className="size-3.5" />}>
+          <Panel
+            title={t("Ambisonic order", "Ambisonics-Ordnung")}
+            icon={<Layers className="size-3.5" />}
+            right={
+              <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                ACN · SN3D · AmbiX
+              </span>
+            }
+          >
+
             <div className="grid grid-cols-3 gap-2">
               {ORDERS.map((o) => (
                 <button
@@ -637,12 +654,12 @@ function Workstation() {
 
           <Panel title={t("LFE routing", "LFE-Routing")}>
             <div className="flex flex-wrap gap-2">
-              {LFE_MODES.map(([mode, labelEn, labelDe, hintEn, hintDe]) => (
+              {LFE_ROUTINGS.map(([mode, labelEn, labelDe, hintEn, hintDe]) => (
                 <Pill
                   key={mode}
-                  active={lfeMode === mode}
+                  active={lfeRouting === mode}
                   disabled={rendering}
-                  onClick={() => setLfeMode(mode)}
+                  onClick={() => setLfeRouting(mode)}
                 >
                   {t(labelEn, labelDe)}
                   <span className="ml-1.5 font-mono text-[9px] opacity-60">{t(hintEn, hintDe)}</span>
@@ -650,16 +667,50 @@ function Workstation() {
               ))}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-              {t(
-                "LFE is omnidirectional: a 120 Hz 4th-order Butterworth low-pass is summed into ACN 0 (W) only, never encoded to a direction.",
-                "LFE ist omnidirektional: Ein 120-Hz-Butterworth-Tiefpass 4. Ordnung wird nur in ACN 0 (W) summiert und nie in eine Richtung kodiert.",
-              )}
+              {lfeRouting === "omni" &&
+                t(
+                  "A 120 Hz 4th-order Butterworth low-pass is summed into ACN 0 (W) only — equal pressure in every direction.",
+                  "Ein 120-Hz-Butterworth-Tiefpass 4. Ordnung wird nur in ACN 0 (W) summiert — gleicher Druck in alle Richtungen.",
+                )}
+              {lfeRouting === "down" &&
+                t(
+                  "First-order downward cardioid (W + Z): full level at the floor, an acoustic null at the ceiling, so height speakers stay free of sub energy.",
+                  "Nach unten gerichtete Niere 1. Ordnung (W + Z): voller Pegel am Boden, akustische Null an der Decke — Höhenlautsprecher bleiben frei von Subbass.",
+                )}
+              {lfeRouting === "position" &&
+                t(
+                  `Encoded at the LFE loudspeaker coordinates of the active profile (${profile === "itu" ? "ITU-R BS.2051 catalogue angles" : "0° azimuth, −30° elevation"}).`,
+                  `Kodiert an den LFE-Lautsprecherkoordinaten des aktiven Profils (${profile === "itu" ? "ITU-R-BS.2051-Katalogwinkel" : "0° Azimut, −30° Elevation"}).`,
+                )}
+              {lfeRouting === "off" &&
+                t("LFE channels are excluded from the render.", "LFE-Kanäle werden nicht gerendert.")}
             </p>
           </Panel>
 
+          {lfeRouting !== "off" && (
+            <Panel title={t("LFE level", "LFE-Pegel")}>
+              <div className="flex flex-wrap gap-2">
+                {LFE_GAINS.map(([g, label, hintEn, hintDe]) => (
+                  <Pill key={g} active={lfeGain === g} disabled={rendering} onClick={() => setLfeGain(g)}>
+                    {label}
+                    <span className="ml-1.5 font-mono text-[9px] opacity-60">{t(hintEn, hintDe)}</span>
+                  </Pill>
+                ))}
+              </div>
+            </Panel>
+          )}
+
           <Panel
             title={t("Master gain", "Gesamtpegel")}
-            right={<span className="font-mono text-[10px]">{gainDb.toFixed(1)} dB</span>}
+            right={
+              <span
+                onDoubleClick={() => !rendering && setGainDb(0)}
+                title={t("Double-click to reset to 0 dB", "Doppelklick setzt auf 0 dB zurück")}
+                className="cursor-pointer select-none font-mono text-[10px]"
+              >
+                {gainDb.toFixed(1)} dB
+              </span>
+            }
           >
             <input
               type="range"
@@ -669,9 +720,12 @@ function Workstation() {
               value={gainDb}
               disabled={rendering}
               onChange={(e) => setGainDb(Number(e.target.value))}
+              onDoubleClick={() => !rendering && setGainDb(0)}
+              title={t("Double-click to reset to 0 dB", "Doppelklick setzt auf 0 dB zurück")}
               className="h-1 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-[var(--v2-valid)]"
             />
           </Panel>
+
 
           <Panel title={t("Render & export", "Rendern & Export")} icon={<Download className="size-3.5" />}>
             {!rendering ? (
@@ -708,11 +762,12 @@ function Workstation() {
                 <CircleCheck className="mr-2 inline size-4 text-[var(--v2-valid)]" />
                 {t(`Rendered ${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s.`, `${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s gerendert.`)}
                 {clip && (
-                  <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                    {t("Sample peak (all channels)", "Sample-Peak (alle Kanäle)")}:{" "}
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                    {t("Sample peak", "Sample-Peak")}:{" "}
                     {clip.peakDb === -Infinity ? "-∞" : `${clip.peakDb > 0 ? "+" : ""}${clip.peakDb.toFixed(1)}`} dBFS
-                  </span>
+                  </p>
                 )}
+
                 {result.url ? (
                   <>
                     <p className="mt-1 text-[11px] text-muted-foreground">
@@ -775,12 +830,6 @@ function Workstation() {
           {t(
             "Your audio files never leave your computer. All parsing, spatial math and Ambisonic encoding happen directly on your CPU inside this browser tab. No files are uploaded to any server.",
             "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Parsing, die Raumberechnung und die Ambisonics-Kodierung laufen direkt auf deiner CPU in diesem Browser-Tab. Es werden keine Dateien auf einen Server hochgeladen.",
-          )}
-        </p>
-        <p>
-          {t(
-            "AmbiX output: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN order, SN3D normalization, RF64 promotion past 4 GB.",
-            "AmbiX-Ausgabe: WAVE_FORMAT_EXTENSIBLE, 24-bit PCM, ACN-Reihenfolge, SN3D-Normalisierung, RF64 ab 4 GB.",
           )}
         </p>
         <p className="mx-auto max-w-3xl">

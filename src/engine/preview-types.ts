@@ -1,4 +1,4 @@
-import type { LfeMode, RenderSource } from "./types";
+import type { LfeGain, RenderSource } from "./types";
 
 /** Ambisonic order used for the in-browser binaural audition. */
 export type PreviewOrder = 3 | 4;
@@ -28,7 +28,7 @@ export type PreviewRequest = {
     sampleRate: number;
   };
   order: PreviewOrder;
-  lfeMode: LfeMode;
+  lfeMode: LfeGain | "exclude";
   masterGain: number;
   startSample: number;
   maxFrames: number;

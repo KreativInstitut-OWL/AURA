@@ -72,11 +72,19 @@ export async function parseContainer(file: File): Promise<ContainerInfo> {
   };
   if (formatTag === 0xfffe && fmtRef.size >= 40) {
     const sub = f.getUint16(24, true); // first 2 bytes of SubFormat GUID
-    if (sub !== 1) throw new Error("WAVE_FORMAT_EXTENSIBLE sub-format is not PCM.");
-    formatTag = 1;
-  } else if (formatTag !== 1) {
-    throw new Error("Unsupported wFormatTag 0x" + formatTag.toString(16) + " (PCM required).");
+    // 1 = KSDATAFORMAT_SUBTYPE_PCM, 3 = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
+    if (sub !== 1 && sub !== 3)
+      throw new Error("WAVE_FORMAT_EXTENSIBLE sub-format is neither PCM nor IEEE float.");
+    formatTag = sub;
+  } else if (formatTag !== 1 && formatTag !== 3) {
+    throw new Error(
+      "Unsupported wFormatTag 0x" + formatTag.toString(16) + " (PCM or IEEE float required).",
+    );
   }
+  format.formatTag = formatTag;
+  if (formatTag === 3 && format.bitsPerSample !== 32 && format.bitsPerSample !== 64)
+    throw new Error(`Unsupported float bit depth: ${format.bitsPerSample}.`);
+
 
   const chnaRef = find("chna");
   const chna: ChnaEntry[] = [];
