@@ -132,18 +132,22 @@ export function SpatialViewer({
       ctx.textAlign = "center";
       ctx.fillText("FRONT", front.sx, front.sy);
 
-      // Bed anchors (directional speakers only)
+      // Bed anchors (directional speakers only) — size follows the channel level
       for (const s of srcs.filter((x) => x.kind === "bed" && !x.isLFE)) {
         const p = project(s.azimuth, s.elevation, 1);
+        const lv = levelOf(s.channelIndex);
+        const half = lv < 0 ? 4 : 2 + lv * 5;
         ctx.fillStyle = cPrimary;
-        ctx.globalAlpha = p.depth > 0 ? 1 : 0.5;
+        ctx.globalAlpha = (p.depth > 0 ? 1 : 0.5) * (lv < 0 ? 1 : 0.35 + lv * 0.65);
         ctx.beginPath();
-        ctx.rect(p.sx - 4, p.sy - 4, 8, 8);
+        ctx.rect(p.sx - half, p.sy - half, half * 2, half * 2);
         ctx.fill();
+        ctx.globalAlpha = p.depth > 0 ? 1 : 0.5;
         ctx.fillStyle = cMuted;
         ctx.fillText(s.name, p.sx, p.sy - 9);
         ctx.globalAlpha = 1;
       }
+
 
       // LFE is omnidirectional: shown at the origin, not as a loudspeaker point
       if (srcs.some((x) => x.isLFE)) {
