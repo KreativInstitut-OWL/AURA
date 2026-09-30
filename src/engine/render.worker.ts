@@ -118,6 +118,16 @@ async function render(req: WorkerRequest) {
   let lastPost = 0;
   let maxPeak = 0;
   let maxPeakChannel = 0;
+
+  // Level envelope of the *input* channels, measured on the same sample grid
+  // the spatial viewer uses, so the animation stays frame-accurate.
+  const binSamples = Math.max(1, Math.round(container.sampleRate * ENVELOPE_BIN_SEC));
+  const envelopeBins = Math.max(1, Math.ceil(totalFrames / binSamples));
+  const inCh = container.channels;
+  const envelope = new Float32Array(inCh * envelopeBins);
+  const sourcePeaks = new Float32Array(inCh);
+  const allSources = req.sources;
+
   while (frame < totalFrames) {
     const frames = Math.min(FRAME_BLOCK, totalFrames - frame);
     const byteStart = container.dataOffset + frame * container.blockAlign;
@@ -125,7 +135,25 @@ async function render(req: WorkerRequest) {
     const raw = new Uint8Array(await file.slice(byteStart, byteEnd).arrayBuffer());
     if (raw.byteLength < frames * container.blockAlign) break;
 
+    // --- Input level metering (drives the spatial viewer) ---
+    sourcePeaks.fill(0);
+    for (const s of allSources) {
+      const ci = s.channelIndex;
+      if (ci < 0 || ci >= inCh) continue;
+      const chOff = ci * bytesPerSample;
+      let pk = 0;
+      for (let f = 0; f < frames; f++) {
+        const v = Math.abs(decode(raw, f * container.blockAlign + chOff));
+        if (v > pk) pk = v;
+        const bin = ((frame + f) / binSamples) | 0;
+        const idx = ci * envelopeBins + bin;
+        if (v > envelope[idx]!) envelope[idx] = v;
+      }
+      sourcePeaks[ci] = pk;
+    }
+
     planar.fill(0, 0, M * frames);
+
 
     // --- Bed: static coefficients ---
     for (const b of beds) {
