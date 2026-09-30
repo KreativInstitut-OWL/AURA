@@ -240,30 +240,30 @@ async function render(req: WorkerRequest) {
         elapsedMs: now - started,
         maxPeak,
         maxPeakChannel,
+        sourcePeaks: new Float32Array(sourcePeaks),
       });
     }
   }
 
-  if (writable) {
-    await writable.close();
-    post({
+  if (writable) await writable.close();
+  const envCopy = new Float32Array(envelope);
+  post(
+    {
       type: "done",
-      blob: null,
+      blob: writable ? null : new Blob(blobParts, { type: "audio/wav" }),
       bytesWritten,
       elapsedMs: performance.now() - started,
       maxPeak,
       maxPeakChannel,
-    });
-  } else {
-    post({
-      type: "done",
-      blob: new Blob(blobParts, { type: "audio/wav" }),
-      bytesWritten,
-      elapsedMs: performance.now() - started,
-      maxPeak,
-      maxPeakChannel,
-    });
-  }
+      // The render already read every sample, so the viewer gets the full
+      // envelope for free — no second pass over the file is needed.
+      envelope: envCopy,
+      envelopeBins,
+      binSamples,
+    },
+    [envCopy.buffer],
+  );
+
 }
 
 self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
