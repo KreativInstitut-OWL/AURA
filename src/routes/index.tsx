@@ -467,8 +467,10 @@ function Workstation() {
   const stopRender = () => {
     workerRef.current?.terminate();
     workerRef.current = null;
+    levelsRef.current.live = null;
     setRendering(false);
   };
+
 
   // "apply suggested gain & re-render": set the slider, then start once state settled
   const [pendingRerender, setPendingRerender] = useState(false);
