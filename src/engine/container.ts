@@ -25,10 +25,13 @@ export async function parseContainer(file: File): Promise<ContainerInfo> {
   const head = await readSlice(file, 0, 12);
   const riffId = fourCC(head, 0);
   const form = fourCC(head, 8);
-  if ((riffId !== "RIFF" && riffId !== "RF64") || form !== "WAVE") {
-    throw new Error("Not a RIFF/RF64 WAVE file (found '" + riffId + "'/'" + form + "').");
+  // BW64 (ITU-R BS.2088) is structurally identical to RF64: same ds64 table,
+  // same 64-bit sizes — only the leading FourCC differs.
+  if ((riffId !== "RIFF" && riffId !== "RF64" && riffId !== "BW64") || form !== "WAVE") {
+    throw new Error("Not a RIFF/RF64/BW64 WAVE file (found '" + riffId + "'/'" + form + "').");
   }
-  const isRF64 = riffId === "RF64";
+  const isRF64 = riffId === "RF64" || riffId === "BW64";
+
 
   const chunks: ChunkRef[] = [];
   let ds64DataSize = -1;

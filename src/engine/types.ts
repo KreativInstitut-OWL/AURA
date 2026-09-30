@@ -149,6 +149,8 @@ export type WorkerResponse =
       maxPeak: number;
       /** ACN index that produced maxPeak */
       maxPeakChannel: number;
+      /** live absolute peak of every *input* channel in the block just processed */
+      sourcePeaks: Float32Array;
     }
   | {
       type: "done";
@@ -157,5 +159,52 @@ export type WorkerResponse =
       elapsedMs: number;
       maxPeak: number;
       maxPeakChannel: number;
+      /** complete input-channel peak envelope, [channel * bins + bin] */
+      envelope: Float32Array | null;
+      envelopeBins: number;
+      binSamples: number;
     }
   | { type: "error"; message: string };
+
+/** Time resolution of the level envelope shown in the spatial viewer. */
+export const ENVELOPE_BIN_SEC = 0.05;
+
+export interface EnvelopeRequest {
+  type: "scan";
+  file: File;
+  container: {
+    dataOffset: number;
+    frameCount: number;
+    blockAlign: number;
+    bitsPerSample: number;
+    isFloat: boolean;
+    channels: number;
+    sampleRate: number;
+  };
+  /** samples per envelope bin, derived from the file's own sample rate */
+  binSamples: number;
+}
+
+export type EnvelopeResponse =
+  | {
+      type: "bins";
+      startBin: number;
+      count: number;
+      channels: number;
+      /** interleaved [bin * channels + channel] */
+      data: Float32Array;
+    }
+  | { type: "done"; totalBins: number }
+  | { type: "error"; message: string };
+
+/** Level data the spatial viewer reads every animation frame. */
+export interface LevelState {
+  channels: number;
+  binSamples: number;
+  bins: number;
+  /** [channel * bins + bin], filled progressively */
+  envelope: Float32Array | null;
+  /** live per-input-channel peaks while a render is running */
+  live: Float32Array | null;
+}
+
