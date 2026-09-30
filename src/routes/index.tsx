@@ -784,22 +784,26 @@ function Workstation() {
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
               {lfeRouting === "omni" &&
                 t(
-                  "A 120 Hz 4th-order Butterworth low-pass is summed into ACN 0 (W) only — equal pressure in every direction.",
-                  "Ein 120-Hz-Butterworth-Tiefpass 4. Ordnung wird nur in ACN 0 (W) summiert — gleicher Druck in alle Richtungen.",
+                  "The LFE channel is filtered at 120 Hz (4th-order Butterworth) and summed into ACN 0 (W) only — equal pressure in every direction. Best for headphone binauralisation and neutral distribution.",
+                  "Der LFE-Kanal wird bei 120 Hz gefiltert (Butterworth 4. Ordnung) und nur in ACN 0 (W) eingespeist — gleichmäßiger Schalldruck in alle Richtungen. Ideal für Kopfhörer-Binauralisierung und neutrale Wiedergabe.",
                 )}
               {lfeRouting === "down" &&
                 t(
-                  "First-order downward cardioid (W + Z): full level at the floor, an acoustic null at the ceiling, so height speakers stay free of sub energy.",
-                  "Nach unten gerichtete Niere 1. Ordnung (W + Z): voller Pegel am Boden, akustische Null an der Decke — Höhenlautsprecher bleiben frei von Subbass.",
+                  "The LFE channel is filtered at 120 Hz and encoded as a downward cardioid (W + Z): full level at the floor, an acoustic null at the ceiling. Best for loudspeaker setups, keeping sub energy out of the height speakers.",
+                  "Der LFE-Kanal wird bei 120 Hz gefiltert und als nach unten gerichtete Niere (W + Z) kodiert: voller Pegel am Boden, akustische Null an der Decke. Ideal für Lautsprecher-Setups, da Höhenlautsprecher frei von Subbass bleiben.",
                 )}
               {lfeRouting === "position" &&
                 t(
-                  `Encoded at the LFE loudspeaker coordinates of the active profile (${profile === "itu" ? "ITU-R BS.2051 catalogue angles" : "0° azimuth, −30° elevation"}).`,
-                  `Kodiert an den LFE-Lautsprecherkoordinaten des aktiven Profils (${profile === "itu" ? "ITU-R-BS.2051-Katalogwinkel" : "0° Azimut, −30° Elevation"}).`,
+                  `The LFE channel is filtered at 120 Hz and encoded at the LFE loudspeaker coordinates of the active profile (${profile === "itu" ? "ITU-R BS.2051 catalogue angles" : "0° azimuth, −30° elevation"}). Best for room and cinema simulations.`,
+                  `Der LFE-Kanal wird bei 120 Hz gefiltert und an den LFE-Lautsprecherkoordinaten des aktiven Profils kodiert (${profile === "itu" ? "ITU-R-BS.2051-Katalogwinkel" : "0° Azimut, −30° Elevation"}). Ideal für Raum- und Kinosimulationen.`,
                 )}
               {lfeRouting === "off" &&
-                t("LFE channels are excluded from the render.", "LFE-Kanäle werden nicht gerendert.")}
+                t(
+                  "The LFE channel is excluded from the render. Sensible when bed and objects already carry enough low end, or to keep maximum headroom.",
+                  "Der LFE-Kanal wird nicht gerendert. Sinnvoll, wenn Bed und Objekte bereits genug Tiefbass liefern oder für maximalen Headroom.",
+                )}
             </p>
+
           </Panel>
 
           {lfeRouting !== "off" && (
