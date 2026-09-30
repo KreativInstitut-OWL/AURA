@@ -375,6 +375,10 @@ function Workstation() {
       }
     }
 
+    // The render reads every sample anyway, so the background scan stands down.
+    envWorkerRef.current?.terminate();
+    envWorkerRef.current = null;
+
     const worker = new Worker(new URL("../engine/render.worker.ts", import.meta.url), {
       type: "module",
     });
@@ -384,6 +388,7 @@ function Workstation() {
     worker.onerror = (ev) => {
       setError(`Render worker failed: ${ev.message || "unknown error"}`);
       setRendering(false);
+      levelsRef.current.live = null;
     };
 
     worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
@@ -394,15 +399,29 @@ function Workstation() {
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
         setPlayhead(msg.framesDone);
+        levelsRef.current.live = msg.sourcePeaks;
       } else if (msg.type === "done") {
         setRendering(false);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
+        // Full envelope comes back from the render for free.
+        levelsRef.current.live = null;
+        if (msg.envelope) {
+          levelsRef.current = {
+            channels: levelsRef.current.channels,
+            binSamples: msg.binSamples,
+            bins: msg.envelopeBins,
+            envelope: msg.envelope,
+            live: null,
+          };
+          setScanPct(1);
+        }
         // Peak is measured in 32-bit float before 24-bit quantisation clamps it.
         const peakDb = msg.maxPeak > 0 ? 20 * Math.log10(msg.maxPeak) : -Infinity;
         const suggested =
           peakDb > 0 ? Math.max(-24, Math.floor((gainDb - peakDb - 0.2) * 2) / 2) : gainDb;
         setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
+
         const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
         setResult({ url, name: outName });
         if (url) {
