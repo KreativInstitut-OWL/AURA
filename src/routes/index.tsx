@@ -186,7 +186,92 @@ function Workstation() {
   const outChannels = channelCount(order);
   const needsChannelMap = !!container && (!container.axml || container.chna.length === 0);
 
-  useEffect(() => () => workerRef.current?.terminate(), []);
+  /** level data the spatial viewer reads every frame (scanned or live) */
+  const levelsRef = useRef<LevelState>({
+    channels: 0,
+    binSamples: 1,
+    bins: 0,
+    envelope: null,
+    live: null,
+  });
+  const envWorkerRef = useRef<Worker | null>(null);
+  const [scanPct, setScanPct] = useState(0);
+
+  useEffect(
+    () => () => {
+      workerRef.current?.terminate();
+      envWorkerRef.current?.terminate();
+    },
+    [],
+  );
+
+  // Background level scan: one pass over the file, reduced to 50 ms peak bins.
+  useEffect(() => {
+    envWorkerRef.current?.terminate();
+    envWorkerRef.current = null;
+    if (!file || !container) {
+      levelsRef.current = { channels: 0, binSamples: 1, bins: 0, envelope: null, live: null };
+      setScanPct(0);
+      return;
+    }
+    const rate = container.format.sampleRate;
+    const binSamples = Math.max(1, Math.round(rate * ENVELOPE_BIN_SEC));
+    const bins = Math.max(1, Math.ceil(container.frameCount / binSamples));
+    const channels = container.format.channels;
+    levelsRef.current = {
+      channels,
+      binSamples,
+      bins,
+      envelope: new Float32Array(channels * bins),
+      live: null,
+    };
+    setScanPct(0);
+
+    const w = new Worker(new URL("../engine/envelope.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    envWorkerRef.current = w;
+    w.onmessage = (ev: MessageEvent<EnvelopeResponse>) => {
+      const msg = ev.data;
+      if (msg.type === "bins") {
+        const env = levelsRef.current.envelope;
+        if (!env) return;
+        for (let b = 0; b < msg.count; b++) {
+          const bin = msg.startBin + b;
+          if (bin >= bins) break;
+          for (let c = 0; c < msg.channels; c++) env[c * bins + bin] = msg.data[b * msg.channels + c]!;
+        }
+        setScanPct(Math.min(1, (msg.startBin + msg.count) / bins));
+      } else if (msg.type === "done") {
+        setScanPct(1);
+        w.terminate();
+        envWorkerRef.current = null;
+      } else {
+        w.terminate();
+        envWorkerRef.current = null;
+      }
+    };
+    const req: EnvelopeRequest = {
+      type: "scan",
+      file,
+      container: {
+        dataOffset: container.dataOffset,
+        frameCount: container.frameCount,
+        blockAlign: container.format.blockAlign,
+        bitsPerSample: container.format.bitsPerSample,
+        isFloat: container.format.formatTag === 3,
+        channels: container.format.channels,
+        sampleRate: rate,
+      },
+      binSamples,
+    };
+    w.postMessage(req);
+    return () => {
+      w.terminate();
+      if (envWorkerRef.current === w) envWorkerRef.current = null;
+    };
+  }, [file, container]);
+
 
   // Idle trajectory animation
   useEffect(() => {
