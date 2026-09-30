@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 import { positionAt } from "@/engine/adm";
-import type { RenderSource } from "@/engine/types";
+import type { LevelState, RenderSource } from "@/engine/types";
 
 interface Props {
   sources: RenderSource[];
@@ -9,6 +9,8 @@ interface Props {
   sampleRate: number;
   playheadSample: number;
   spinning?: boolean;
+  /** live / scanned input levels; dots scale with the signal when present */
+  levelsRef?: RefObject<LevelState>;
 }
 
 /** Isometric 3D dome view of bed anchors and animated object trajectories. */
@@ -18,12 +20,15 @@ export function SpatialViewer({
   sampleRate,
   playheadSample,
   spinning = true,
+  levelsRef,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const yawRef = useRef(0.6);
   const dragRef = useRef<{ x: number; yaw: number } | null>(null);
   const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning });
   stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning };
+  const levels = levelsRef;
+
 
   useEffect(() => {
     const canvas = canvasRef.current;
