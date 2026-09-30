@@ -684,6 +684,11 @@ function Workstation() {
             right={
               analysis ? (
                 <span className="font-mono text-[10px] text-muted-foreground">
+                  {scanPct > 0 && scanPct < 1 && !rendering && (
+                    <span className="mr-2 text-accent">
+                      {t("levels", "Pegel")} {Math.round(scanPct * 100)}%
+                    </span>
+                  )}
                   {fmtTime(playhead / analysis.container.format.sampleRate)} /{" "}
                   {fmtTime(analysis.container.durationSec)}
                 </span>
@@ -697,7 +702,9 @@ function Workstation() {
                   frameCount={analysis.container.frameCount}
                   sampleRate={analysis.container.format.sampleRate}
                   playheadSample={playhead}
+                  levelsRef={levelsRef}
                 />
+
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {t("Squares are bed anchors, dots are objects on their interpolated paths. Drag to rotate.", "Quadrate sind Bed-Anker, Punkte sind Objekte auf ihren interpolierten Pfaden. Zum Drehen ziehen.")}
                 </p>
