@@ -26,10 +26,14 @@ import { analyseAdm, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine
 import { parseContainer } from "@/engine/container";
 import { channelCount } from "@/engine/sh";
 
+import { ENVELOPE_BIN_SEC } from "@/engine/types";
 import type {
   AnalysisResult,
   BedProfile,
   ContainerInfo,
+  EnvelopeRequest,
+  EnvelopeResponse,
+  LevelState,
   LfeGain,
   LfeRouting,
 
@@ -186,7 +190,92 @@ function Workstation() {
   const outChannels = channelCount(order);
   const needsChannelMap = !!container && (!container.axml || container.chna.length === 0);
 
-  useEffect(() => () => workerRef.current?.terminate(), []);
+  /** level data the spatial viewer reads every frame (scanned or live) */
+  const levelsRef = useRef<LevelState>({
+    channels: 0,
+    binSamples: 1,
+    bins: 0,
+    envelope: null,
+    live: null,
+  });
+  const envWorkerRef = useRef<Worker | null>(null);
+  const [scanPct, setScanPct] = useState(0);
+
+  useEffect(
+    () => () => {
+      workerRef.current?.terminate();
+      envWorkerRef.current?.terminate();
+    },
+    [],
+  );
+
+  // Background level scan: one pass over the file, reduced to 50 ms peak bins.
+  useEffect(() => {
+    envWorkerRef.current?.terminate();
+    envWorkerRef.current = null;
+    if (!file || !container) {
+      levelsRef.current = { channels: 0, binSamples: 1, bins: 0, envelope: null, live: null };
+      setScanPct(0);
+      return;
+    }
+    const rate = container.format.sampleRate;
+    const binSamples = Math.max(1, Math.round(rate * ENVELOPE_BIN_SEC));
+    const bins = Math.max(1, Math.ceil(container.frameCount / binSamples));
+    const channels = container.format.channels;
+    levelsRef.current = {
+      channels,
+      binSamples,
+      bins,
+      envelope: new Float32Array(channels * bins),
+      live: null,
+    };
+    setScanPct(0);
+
+    const w = new Worker(new URL("../engine/envelope.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    envWorkerRef.current = w;
+    w.onmessage = (ev: MessageEvent<EnvelopeResponse>) => {
+      const msg = ev.data;
+      if (msg.type === "bins") {
+        const env = levelsRef.current.envelope;
+        if (!env) return;
+        for (let b = 0; b < msg.count; b++) {
+          const bin = msg.startBin + b;
+          if (bin >= bins) break;
+          for (let c = 0; c < msg.channels; c++) env[c * bins + bin] = msg.data[b * msg.channels + c]!;
+        }
+        setScanPct(Math.min(1, (msg.startBin + msg.count) / bins));
+      } else if (msg.type === "done") {
+        setScanPct(1);
+        w.terminate();
+        envWorkerRef.current = null;
+      } else {
+        w.terminate();
+        envWorkerRef.current = null;
+      }
+    };
+    const req: EnvelopeRequest = {
+      type: "scan",
+      file,
+      container: {
+        dataOffset: container.dataOffset,
+        frameCount: container.frameCount,
+        blockAlign: container.format.blockAlign,
+        bitsPerSample: container.format.bitsPerSample,
+        isFloat: container.format.formatTag === 3,
+        channels: container.format.channels,
+        sampleRate: rate,
+      },
+      binSamples,
+    };
+    w.postMessage(req);
+    return () => {
+      w.terminate();
+      if (envWorkerRef.current === w) envWorkerRef.current = null;
+    };
+  }, [file, container]);
+
 
   // Idle trajectory animation
   useEffect(() => {
@@ -286,6 +375,10 @@ function Workstation() {
       }
     }
 
+    // The render reads every sample anyway, so the background scan stands down.
+    envWorkerRef.current?.terminate();
+    envWorkerRef.current = null;
+
     const worker = new Worker(new URL("../engine/render.worker.ts", import.meta.url), {
       type: "module",
     });
@@ -295,6 +388,7 @@ function Workstation() {
     worker.onerror = (ev) => {
       setError(`Render worker failed: ${ev.message || "unknown error"}`);
       setRendering(false);
+      levelsRef.current.live = null;
     };
 
     worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
@@ -305,15 +399,29 @@ function Workstation() {
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
         setPlayhead(msg.framesDone);
+        levelsRef.current.live = msg.sourcePeaks;
       } else if (msg.type === "done") {
         setRendering(false);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
+        // Full envelope comes back from the render for free.
+        levelsRef.current.live = null;
+        if (msg.envelope) {
+          levelsRef.current = {
+            channels: levelsRef.current.channels,
+            binSamples: msg.binSamples,
+            bins: msg.envelopeBins,
+            envelope: msg.envelope,
+            live: null,
+          };
+          setScanPct(1);
+        }
         // Peak is measured in 32-bit float before 24-bit quantisation clamps it.
         const peakDb = msg.maxPeak > 0 ? 20 * Math.log10(msg.maxPeak) : -Infinity;
         const suggested =
           peakDb > 0 ? Math.max(-24, Math.floor((gainDb - peakDb - 0.2) * 2) / 2) : gainDb;
         setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
+
         const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
         setResult({ url, name: outName });
         if (url) {
@@ -359,8 +467,10 @@ function Workstation() {
   const stopRender = () => {
     workerRef.current?.terminate();
     workerRef.current = null;
+    levelsRef.current.live = null;
     setRendering(false);
   };
+
 
   // "apply suggested gain & re-render": set the slider, then start once state settled
   const [pendingRerender, setPendingRerender] = useState(false);
@@ -576,6 +686,11 @@ function Workstation() {
             right={
               analysis ? (
                 <span className="font-mono text-[10px] text-muted-foreground">
+                  {scanPct > 0 && scanPct < 1 && !rendering && (
+                    <span className="mr-2 text-accent">
+                      {t("levels", "Pegel")} {Math.round(scanPct * 100)}%
+                    </span>
+                  )}
                   {fmtTime(playhead / analysis.container.format.sampleRate)} /{" "}
                   {fmtTime(analysis.container.durationSec)}
                 </span>
@@ -589,7 +704,9 @@ function Workstation() {
                   frameCount={analysis.container.frameCount}
                   sampleRate={analysis.container.format.sampleRate}
                   playheadSample={playhead}
+                  levelsRef={levelsRef}
                 />
+
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {t("Squares are bed anchors, dots are objects on their interpolated paths. Drag to rotate.", "Quadrate sind Bed-Anker, Punkte sind Objekte auf ihren interpolierten Pfaden. Zum Drehen ziehen.")}
                 </p>
@@ -669,22 +786,26 @@ function Workstation() {
             <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
               {lfeRouting === "omni" &&
                 t(
-                  "A 120 Hz 4th-order Butterworth low-pass is summed into ACN 0 (W) only — equal pressure in every direction.",
-                  "Ein 120-Hz-Butterworth-Tiefpass 4. Ordnung wird nur in ACN 0 (W) summiert — gleicher Druck in alle Richtungen.",
+                  "The LFE channel is filtered at 120 Hz (4th-order Butterworth) and summed into ACN 0 (W) only — equal pressure in every direction. Best for headphone binauralisation and neutral distribution.",
+                  "Der LFE-Kanal wird bei 120 Hz gefiltert (Butterworth 4. Ordnung) und nur in ACN 0 (W) eingespeist — gleichmäßiger Schalldruck in alle Richtungen. Ideal für Kopfhörer-Binauralisierung und neutrale Wiedergabe.",
                 )}
               {lfeRouting === "down" &&
                 t(
-                  "First-order downward cardioid (W + Z): full level at the floor, an acoustic null at the ceiling, so height speakers stay free of sub energy.",
-                  "Nach unten gerichtete Niere 1. Ordnung (W + Z): voller Pegel am Boden, akustische Null an der Decke — Höhenlautsprecher bleiben frei von Subbass.",
+                  "The LFE channel is filtered at 120 Hz and encoded as a downward cardioid (W + Z): full level at the floor, an acoustic null at the ceiling. Best for loudspeaker setups, keeping sub energy out of the height speakers.",
+                  "Der LFE-Kanal wird bei 120 Hz gefiltert und als nach unten gerichtete Niere (W + Z) kodiert: voller Pegel am Boden, akustische Null an der Decke. Ideal für Lautsprecher-Setups, da Höhenlautsprecher frei von Subbass bleiben.",
                 )}
               {lfeRouting === "position" &&
                 t(
-                  `Encoded at the LFE loudspeaker coordinates of the active profile (${profile === "itu" ? "ITU-R BS.2051 catalogue angles" : "0° azimuth, −30° elevation"}).`,
-                  `Kodiert an den LFE-Lautsprecherkoordinaten des aktiven Profils (${profile === "itu" ? "ITU-R-BS.2051-Katalogwinkel" : "0° Azimut, −30° Elevation"}).`,
+                  `The LFE channel is filtered at 120 Hz and encoded at the LFE loudspeaker coordinates of the active profile (${profile === "itu" ? "ITU-R BS.2051 catalogue angles" : "0° azimuth, −30° elevation"}). Best for room and cinema simulations.`,
+                  `Der LFE-Kanal wird bei 120 Hz gefiltert und an den LFE-Lautsprecherkoordinaten des aktiven Profils kodiert (${profile === "itu" ? "ITU-R-BS.2051-Katalogwinkel" : "0° Azimut, −30° Elevation"}). Ideal für Raum- und Kinosimulationen.`,
                 )}
               {lfeRouting === "off" &&
-                t("LFE channels are excluded from the render.", "LFE-Kanäle werden nicht gerendert.")}
+                t(
+                  "The LFE channel is excluded from the render. Sensible when bed and objects already carry enough low end, or to keep maximum headroom.",
+                  "Der LFE-Kanal wird nicht gerendert. Sinnvoll, wenn Bed und Objekte bereits genug Tiefbass liefern oder für maximalen Headroom.",
+                )}
             </p>
+
           </Panel>
 
           {lfeRouting !== "off" && (

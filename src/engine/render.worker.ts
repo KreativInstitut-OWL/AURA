@@ -1,12 +1,13 @@
 /// <reference lib="webworker" />
 import { positionAt } from "./adm";
 import { buildAmbixHeader, packInt24 } from "./ambix";
+import { makeDecoder } from "./decode-pcm";
 import { channelCount, encodeDirection } from "./sh";
 import type { RenderSource, WorkerRequest, WorkerResponse } from "./types";
 
 const FRAME_BLOCK = 2048; // processing frames per pass
 const RAMP = 64; // sub-block coefficient ramp interval
-import { LFE_GAIN_VALUE } from "./types";
+import { ENVELOPE_BIN_SEC, LFE_GAIN_VALUE } from "./types";
 
 /** 4th-order Butterworth low-pass (two cascaded biquads), direct form I. */
 class Butterworth4 {
@@ -48,42 +49,6 @@ class Butterworth4 {
   }
 }
 
-function makeDecoder(bits: number, isFloat: boolean) {
-  if (isFloat) {
-    if (bits === 32) {
-      return (bytes: Uint8Array, byteOffset: number) =>
-        new DataView(bytes.buffer, bytes.byteOffset + byteOffset, 4).getFloat32(0, true);
-    }
-    if (bits === 64) {
-      return (bytes: Uint8Array, byteOffset: number) =>
-        new DataView(bytes.buffer, bytes.byteOffset + byteOffset, 8).getFloat64(0, true);
-    }
-    throw new Error(`Unsupported float bit depth: ${bits}`);
-  }
-  if (bits === 24) {
-    return (bytes: Uint8Array, byteOffset: number) => {
-      const u = bytes[byteOffset]! | (bytes[byteOffset + 1]! << 8) | (bytes[byteOffset + 2]! << 16);
-      return ((u << 8) >> 8) / 8388608;
-    };
-  }
-  if (bits === 16) {
-    return (bytes: Uint8Array, byteOffset: number) => {
-      const u = bytes[byteOffset]! | (bytes[byteOffset + 1]! << 8);
-      return ((u << 16) >> 16) / 32768;
-    };
-  }
-  if (bits === 32) {
-    return (bytes: Uint8Array, byteOffset: number) => {
-      const u =
-        bytes[byteOffset]! |
-        (bytes[byteOffset + 1]! << 8) |
-        (bytes[byteOffset + 2]! << 16) |
-        (bytes[byteOffset + 3]! << 24);
-      return u / 2147483648;
-    };
-  }
-  throw new Error(`Unsupported bit depth: ${bits}`);
-}
 
 
 const post = (msg: WorkerResponse, transfer: Transferable[] = []) =>
@@ -153,6 +118,16 @@ async function render(req: WorkerRequest) {
   let lastPost = 0;
   let maxPeak = 0;
   let maxPeakChannel = 0;
+
+  // Level envelope of the *input* channels, measured on the same sample grid
+  // the spatial viewer uses, so the animation stays frame-accurate.
+  const binSamples = Math.max(1, Math.round(container.sampleRate * ENVELOPE_BIN_SEC));
+  const envelopeBins = Math.max(1, Math.ceil(totalFrames / binSamples));
+  const inCh = container.channels;
+  const envelope = new Float32Array(inCh * envelopeBins);
+  const sourcePeaks = new Float32Array(inCh);
+  const allSources = req.sources;
+
   while (frame < totalFrames) {
     const frames = Math.min(FRAME_BLOCK, totalFrames - frame);
     const byteStart = container.dataOffset + frame * container.blockAlign;
@@ -160,7 +135,25 @@ async function render(req: WorkerRequest) {
     const raw = new Uint8Array(await file.slice(byteStart, byteEnd).arrayBuffer());
     if (raw.byteLength < frames * container.blockAlign) break;
 
+    // --- Input level metering (drives the spatial viewer) ---
+    sourcePeaks.fill(0);
+    for (const s of allSources) {
+      const ci = s.channelIndex;
+      if (ci < 0 || ci >= inCh) continue;
+      const chOff = ci * bytesPerSample;
+      let pk = 0;
+      for (let f = 0; f < frames; f++) {
+        const v = Math.abs(decode(raw, f * container.blockAlign + chOff));
+        if (v > pk) pk = v;
+        const bin = ((frame + f) / binSamples) | 0;
+        const idx = ci * envelopeBins + bin;
+        if (v > envelope[idx]!) envelope[idx] = v;
+      }
+      sourcePeaks[ci] = pk;
+    }
+
     planar.fill(0, 0, M * frames);
+
 
     // --- Bed: static coefficients ---
     for (const b of beds) {
@@ -247,30 +240,30 @@ async function render(req: WorkerRequest) {
         elapsedMs: now - started,
         maxPeak,
         maxPeakChannel,
+        sourcePeaks: new Float32Array(sourcePeaks),
       });
     }
   }
 
-  if (writable) {
-    await writable.close();
-    post({
+  if (writable) await writable.close();
+  const envCopy = new Float32Array(envelope);
+  post(
+    {
       type: "done",
-      blob: null,
+      blob: writable ? null : new Blob(blobParts, { type: "audio/wav" }),
       bytesWritten,
       elapsedMs: performance.now() - started,
       maxPeak,
       maxPeakChannel,
-    });
-  } else {
-    post({
-      type: "done",
-      blob: new Blob(blobParts, { type: "audio/wav" }),
-      bytesWritten,
-      elapsedMs: performance.now() - started,
-      maxPeak,
-      maxPeakChannel,
-    });
-  }
+      // The render already read every sample, so the viewer gets the full
+      // envelope for free — no second pass over the file is needed.
+      envelope: envCopy,
+      envelopeBins,
+      binSamples,
+    },
+    [envCopy.buffer],
+  );
+
 }
 
 self.onmessage = (ev: MessageEvent<WorkerRequest>) => {

@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 import { positionAt } from "@/engine/adm";
-import type { RenderSource } from "@/engine/types";
+import type { LevelState, RenderSource } from "@/engine/types";
 
 interface Props {
   sources: RenderSource[];
@@ -9,6 +9,8 @@ interface Props {
   sampleRate: number;
   playheadSample: number;
   spinning?: boolean;
+  /** live / scanned input levels; dots scale with the signal when present */
+  levelsRef?: RefObject<LevelState>;
 }
 
 /** Isometric 3D dome view of bed anchors and animated object trajectories. */
@@ -18,12 +20,15 @@ export function SpatialViewer({
   sampleRate,
   playheadSample,
   spinning = true,
+  levelsRef,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const yawRef = useRef(0.6);
   const dragRef = useRef<{ x: number; yaw: number } | null>(null);
   const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning });
   stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning };
+  const levels = levelsRef;
+
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -59,6 +64,27 @@ export function SpatialViewer({
       const cx = w / 2;
       const cy = h / 2 + h * 0.08;
       const R = Math.min(w, h) * 0.36;
+
+      /**
+       * Normalised 0..1 loudness of an input channel at the current playhead.
+       * Live render peaks win over the scanned envelope; -60 dBFS maps to 0.
+       */
+      const levelOf = (channelIndex: number): number => {
+        const st = levels?.current;
+        if (!st) return -1;
+        let v = -1;
+        if (st.live && channelIndex < st.live.length) v = st.live[channelIndex]!;
+        else if (st.envelope && st.bins > 0) {
+          const bin = Math.min(st.bins - 1, Math.max(0, Math.floor(head / st.binSamples)));
+          const idx = channelIndex * st.bins + bin;
+          if (idx < st.envelope.length) v = st.envelope[idx]!;
+        }
+        if (v < 0) return -1;
+        if (v <= 0) return 0;
+        const db = 20 * Math.log10(v);
+        return Math.min(1, Math.max(0, (db + 60) / 60));
+      };
+
 
       const project = (az: number, el: number, r: number) => {
         // world: x right, y front, z up
@@ -106,18 +132,22 @@ export function SpatialViewer({
       ctx.textAlign = "center";
       ctx.fillText("FRONT", front.sx, front.sy);
 
-      // Bed anchors (directional speakers only)
+      // Bed anchors (directional speakers only) — size follows the channel level
       for (const s of srcs.filter((x) => x.kind === "bed" && !x.isLFE)) {
         const p = project(s.azimuth, s.elevation, 1);
+        const lv = levelOf(s.channelIndex);
+        const half = lv < 0 ? 4 : 2 + lv * 5;
         ctx.fillStyle = cPrimary;
-        ctx.globalAlpha = p.depth > 0 ? 1 : 0.5;
+        ctx.globalAlpha = (p.depth > 0 ? 1 : 0.5) * (lv < 0 ? 1 : 0.35 + lv * 0.65);
         ctx.beginPath();
-        ctx.rect(p.sx - 4, p.sy - 4, 8, 8);
+        ctx.rect(p.sx - half, p.sy - half, half * 2, half * 2);
         ctx.fill();
+        ctx.globalAlpha = p.depth > 0 ? 1 : 0.5;
         ctx.fillStyle = cMuted;
         ctx.fillText(s.name, p.sx, p.sy - 9);
         ctx.globalAlpha = 1;
       }
+
 
       // LFE is omnidirectional: shown at the origin, not as a loudspeaker point
       if (srcs.some((x) => x.isLFE)) {
@@ -153,20 +183,23 @@ export function SpatialViewer({
 
         const now = positionAt(s.points, head);
         const p = project(now.azimuth, now.elevation, Math.min(now.distance || 1, 1.2));
-        ctx.globalAlpha = 1;
+        const lv = levelOf(s.channelIndex);
+        const core = lv < 0 ? 5 : 2.5 + lv * 6;
+        ctx.globalAlpha = lv < 0 ? 1 : 0.35 + lv * 0.65;
         ctx.fillStyle = cAccent;
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, 5, 0, Math.PI * 2);
+        ctx.arc(p.sx, p.sy, core, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 0.2;
+        ctx.globalAlpha = lv < 0 ? 0.2 : 0.08 + lv * 0.22;
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, 11, 0, Math.PI * 2);
+        ctx.arc(p.sx, p.sy, core * 2.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         if (i < 14) {
           ctx.fillStyle = cMuted;
           ctx.fillText(s.name.slice(0, 14), p.sx, p.sy - 12);
         }
+
       });
 
       raf = requestAnimationFrame(draw);
