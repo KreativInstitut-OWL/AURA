@@ -1,12 +1,13 @@
 /// <reference lib="webworker" />
 import { positionAt } from "./adm";
 import { buildAmbixHeader, packInt24 } from "./ambix";
+import { makeDecoder } from "./decode-pcm";
 import { channelCount, encodeDirection } from "./sh";
 import type { RenderSource, WorkerRequest, WorkerResponse } from "./types";
 
 const FRAME_BLOCK = 2048; // processing frames per pass
 const RAMP = 64; // sub-block coefficient ramp interval
-import { LFE_GAIN_VALUE } from "./types";
+import { ENVELOPE_BIN_SEC, LFE_GAIN_VALUE } from "./types";
 
 /** 4th-order Butterworth low-pass (two cascaded biquads), direct form I. */
 class Butterworth4 {
