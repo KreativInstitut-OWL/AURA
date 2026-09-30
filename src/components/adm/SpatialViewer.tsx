@@ -65,6 +65,27 @@ export function SpatialViewer({
       const cy = h / 2 + h * 0.08;
       const R = Math.min(w, h) * 0.36;
 
+      /**
+       * Normalised 0..1 loudness of an input channel at the current playhead.
+       * Live render peaks win over the scanned envelope; -60 dBFS maps to 0.
+       */
+      const levelOf = (channelIndex: number): number => {
+        const st = levels?.current;
+        if (!st) return -1;
+        let v = -1;
+        if (st.live && channelIndex < st.live.length) v = st.live[channelIndex]!;
+        else if (st.envelope && st.bins > 0) {
+          const bin = Math.min(st.bins - 1, Math.max(0, Math.floor(head / st.binSamples)));
+          const idx = channelIndex * st.bins + bin;
+          if (idx < st.envelope.length) v = st.envelope[idx]!;
+        }
+        if (v < 0) return -1;
+        if (v <= 0) return 0;
+        const db = 20 * Math.log10(v);
+        return Math.min(1, Math.max(0, (db + 60) / 60));
+      };
+
+
       const project = (az: number, el: number, r: number) => {
         // world: x right, y front, z up
         const x = r * Math.cos(el) * Math.sin(-az);
