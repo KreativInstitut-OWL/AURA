@@ -728,7 +728,7 @@ function Workstation() {
             <Meters peaks={peaks} channels={outChannels} />
           </Panel>
 
-          {analysis && <MetadataInspector analysis={analysis} />}
+          {analysis && <MetadataInspector analysis={analysis} lfeRouting={lfeRouting} />}
           {!analysis && (
             <Panel title={t("Metadata inspector", "Metadaten-Inspektor")}>
               <Empty label={t("Chunk map, reference chains and raw axml appear here after loading.", "Chunk-Übersicht, Referenzketten und rohes axml erscheinen hier nach dem Laden.")} />
