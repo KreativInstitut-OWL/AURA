@@ -705,7 +705,9 @@ function Workstation() {
                   sampleRate={analysis.container.format.sampleRate}
                   playheadSample={playhead}
                   levelsRef={levelsRef}
+                  lfeRouting={lfeRouting}
                 />
+
 
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {t("Squares are bed anchors, dots are objects on their interpolated paths. Drag to rotate.", "Quadrate sind Bed-Anker, Punkte sind Objekte auf ihren interpolierten Pfaden. Zum Drehen ziehen.")}
@@ -728,7 +730,7 @@ function Workstation() {
             <Meters peaks={peaks} channels={outChannels} />
           </Panel>
 
-          {analysis && <MetadataInspector analysis={analysis} />}
+          {analysis && <MetadataInspector analysis={analysis} lfeRouting={lfeRouting} />}
           {!analysis && (
             <Panel title={t("Metadata inspector", "Metadaten-Inspektor")}>
               <Empty label={t("Chunk map, reference chains and raw axml appear here after loading.", "Chunk-Übersicht, Referenzketten und rohes axml erscheinen hier nach dem Laden.")} />

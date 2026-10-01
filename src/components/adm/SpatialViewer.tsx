@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 
 import { positionAt } from "@/engine/adm";
-import type { LevelState, RenderSource } from "@/engine/types";
+import type { LevelState, LfeRouting, RenderSource } from "@/engine/types";
 
 interface Props {
   sources: RenderSource[];
@@ -11,6 +11,15 @@ interface Props {
   spinning?: boolean;
   /** live / scanned input levels; dots scale with the signal when present */
   levelsRef?: RefObject<LevelState>;
+  /** how the LFE channel is encoded — drives the LFE marker */
+  lfeRouting?: LfeRouting;
+}
+
+/** Objects often arrive as "Stem - Role"; only the role part is worth drawing. */
+function shortLabel(name: string): string {
+  const parts = name.split(/\s+[-–/]\s+/);
+  const tail = parts[parts.length - 1]?.trim();
+  return tail && tail.length > 0 ? tail : name;
 }
 
 /** Isometric 3D dome view of bed anchors and animated object trajectories. */
@@ -21,13 +30,15 @@ export function SpatialViewer({
   playheadSample,
   spinning = true,
   levelsRef,
+  lfeRouting = "omni",
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const yawRef = useRef(0.6);
   const dragRef = useRef<{ x: number; yaw: number } | null>(null);
-  const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning });
-  stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning };
+  const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting });
+  stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting };
   const levels = levelsRef;
+
 
 
   useEffect(() => {
@@ -46,8 +57,14 @@ export function SpatialViewer({
     const cMuted = color("--muted-foreground", "#888");
 
     const draw = () => {
-      const { sources: srcs, frameCount: total, playheadSample: head, spinning: spin } =
-        stateRef.current;
+      const {
+        sources: srcs,
+        frameCount: total,
+        playheadSample: head,
+        spinning: spin,
+        lfeRouting: lfeMode,
+      } = stateRef.current;
+
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
@@ -87,8 +104,9 @@ export function SpatialViewer({
 
 
       const project = (az: number, el: number, r: number) => {
-        // world: x right, y front, z up
-        const x = r * Math.cos(el) * Math.sin(-az);
+        // world: x right, y front, z up — positive azimuth is to the listener's left
+        const x = r * Math.cos(el) * Math.sin(az);
+
         const y = r * Math.cos(el) * Math.cos(az);
         const z = r * Math.sin(el);
         const xr = x * Math.cos(yaw) - y * Math.sin(yaw);
@@ -136,33 +154,62 @@ export function SpatialViewer({
       for (const s of srcs.filter((x) => x.kind === "bed" && !x.isLFE)) {
         const p = project(s.azimuth, s.elevation, 1);
         const lv = levelOf(s.channelIndex);
-        const half = lv < 0 ? 4 : 2 + lv * 5;
+        const half = lv < 0 ? 5 : 5 + lv * 4;
         ctx.fillStyle = cPrimary;
-        ctx.globalAlpha = (p.depth > 0 ? 1 : 0.5) * (lv < 0 ? 1 : 0.35 + lv * 0.65);
+        ctx.globalAlpha = (p.depth > 0 ? 1 : 0.5) * (lv < 0 ? 1 : 0.6 + lv * 0.4);
         ctx.beginPath();
         ctx.rect(p.sx - half, p.sy - half, half * 2, half * 2);
         ctx.fill();
         ctx.globalAlpha = p.depth > 0 ? 1 : 0.5;
         ctx.fillStyle = cMuted;
-        ctx.fillText(s.name, p.sx, p.sy - 9);
+        ctx.fillText(shortLabel(s.name), p.sx, p.sy - half - 5);
         ctx.globalAlpha = 1;
       }
 
 
-      // LFE is omnidirectional: shown at the origin, not as a loudspeaker point
-      if (srcs.some((x) => x.isLFE)) {
-        const o = project(0, 0, 0);
-        ctx.strokeStyle = cMuted;
-        ctx.globalAlpha = 0.7;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.arc(o.sx, o.sy, 9, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = cMuted;
-        ctx.fillText("LFE · omni → W", o.sx, o.sy + 22);
-        ctx.globalAlpha = 1;
+      // LFE marker — placement and caption follow the chosen routing
+      const lfeSources = srcs.filter((x) => x.isLFE);
+      if (lfeSources.length) {
+        const positional = lfeMode === "position";
+        for (const l of lfeSources) {
+          const o = positional ? project(l.azimuth, l.elevation, 1) : project(0, 0, 0);
+          const lv = levelOf(l.channelIndex);
+          const radius = (lv < 0 ? 9 : 7 + lv * 5) * (positional ? 0.8 : 1);
+          ctx.strokeStyle = lfeMode === "off" ? cBorder : cMuted;
+          ctx.globalAlpha = lfeMode === "off" ? 0.4 : 0.75;
+          ctx.setLineDash(lfeMode === "position" ? [] : [3, 3]);
+          ctx.beginPath();
+          ctx.arc(o.sx, o.sy, radius, 0, Math.PI * 2);
+          ctx.stroke();
+          if (lfeMode === "down") {
+            // short downward tail: energy is steered toward the floor
+            ctx.beginPath();
+            ctx.moveTo(o.sx, o.sy + radius);
+            ctx.lineTo(o.sx, o.sy + radius + 10);
+            ctx.moveTo(o.sx - 4, o.sy + radius + 5);
+            ctx.lineTo(o.sx, o.sy + radius + 10);
+            ctx.lineTo(o.sx + 4, o.sy + radius + 5);
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
+          ctx.fillStyle = cMuted;
+          const caption =
+            lfeMode === "omni"
+              ? `${l.name} · omni → W`
+              : lfeMode === "down"
+                ? `${l.name} · cardioid ↓ (W + Z)`
+                : lfeMode === "position"
+                  ? `${l.name} · ${((l.azimuth * 180) / Math.PI).toFixed(0)}° / ${((l.elevation * 180) / Math.PI).toFixed(0)}°`
+                  : `${l.name} · off`;
+          ctx.fillText(
+            caption,
+            o.sx,
+            o.sy + radius + (lfeMode === "down" ? 26 : 16),
+          );
+          ctx.globalAlpha = 1;
+        }
       }
+
 
       // Object trajectories
       const objects = srcs.filter((x) => x.kind === "object");
@@ -184,21 +231,22 @@ export function SpatialViewer({
         const now = positionAt(s.points, head);
         const p = project(now.azimuth, now.elevation, Math.min(now.distance || 1, 1.2));
         const lv = levelOf(s.channelIndex);
-        const core = lv < 0 ? 5 : 2.5 + lv * 6;
-        ctx.globalAlpha = lv < 0 ? 1 : 0.35 + lv * 0.65;
+        const core = lv < 0 ? 6 : 6 + lv * 5;
+        ctx.globalAlpha = lv < 0 ? 1 : 0.6 + lv * 0.4;
         ctx.fillStyle = cAccent;
         ctx.beginPath();
         ctx.arc(p.sx, p.sy, core, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = lv < 0 ? 0.2 : 0.08 + lv * 0.22;
+        ctx.globalAlpha = lv < 0 ? 0.2 : 0.1 + lv * 0.25;
         ctx.beginPath();
         ctx.arc(p.sx, p.sy, core * 2.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         if (i < 14) {
           ctx.fillStyle = cMuted;
-          ctx.fillText(s.name.slice(0, 14), p.sx, p.sy - 12);
+          ctx.fillText(shortLabel(s.name), p.sx, p.sy - core - 7);
         }
+
 
       });
 

@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 import { rad2deg } from "@/engine/sh";
-import type { AnalysisResult, TrackDiagnostic } from "@/engine/types";
+import type { AnalysisResult, LfeRouting, TrackDiagnostic } from "@/engine/types";
 
 /** Raw chunk map and axml viewer were debugging aids; flip to true to bring them back. */
 const SHOW_DEBUG_BLOCKS = false;
@@ -64,10 +64,31 @@ function buildReport(analysis: AnalysisResult): string {
   return lines.join("\n");
 }
 
-export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
+/** LFE azimuth/elevation cells reflect the chosen routing, not a fixed omni assumption. */
+function lfeAz(routing: LfeRouting, az: number): string {
+  if (routing === "omni") return "omni → W";
+  if (routing === "down") return "cardioid ↓";
+  if (routing === "off") return "off";
+  return `${rad2deg(az).toFixed(1)}°`;
+}
+
+function lfeEl(routing: LfeRouting, el: number): string {
+  if (routing === "down") return "W + Z";
+  if (routing === "position") return `${rad2deg(el).toFixed(1)}°`;
+  return "—";
+}
+
+export function MetadataInspector({
+  analysis,
+  lfeRouting = "omni",
+}: {
+  analysis: AnalysisResult;
+  lfeRouting?: LfeRouting;
+}) {
   const { t } = useLang();
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
+
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -187,11 +208,20 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                             </Tag>
                           </td>
                           <td className="p-2 text-right text-muted-foreground">
-                            {!s ? "—" : s.isLFE ? "omni → W" : `${rad2deg(s.azimuth).toFixed(1)}°`}
+                            {!s
+                              ? "—"
+                              : s.isLFE
+                                ? lfeAz(lfeRouting, s.azimuth)
+                                : `${rad2deg(s.azimuth).toFixed(1)}°`}
                           </td>
                           <td className="p-2 text-right text-muted-foreground">
-                            {!s || s.isLFE ? "—" : `${rad2deg(s.elevation).toFixed(1)}°`}
+                            {!s
+                              ? "—"
+                              : s.isLFE
+                                ? lfeEl(lfeRouting, s.elevation)
+                                : `${rad2deg(s.elevation).toFixed(1)}°`}
                           </td>
+
                           <td className="p-2">
                             {s && (
                               <Tag tone={s.points.length ? "primary" : "muted"}>
