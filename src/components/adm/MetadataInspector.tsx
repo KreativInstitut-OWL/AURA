@@ -64,9 +64,29 @@ function buildReport(analysis: AnalysisResult): string {
   return lines.join("\n");
 }
 
-export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
+/** LFE azimuth/elevation cells reflect the chosen routing, not a fixed omni assumption. */
+function lfeAz(routing: LfeRouting, az: number): string {
+  if (routing === "omni") return "omni → W";
+  if (routing === "down") return "cardioid ↓";
+  if (routing === "off") return "off";
+  return `${rad2deg(az).toFixed(1)}°`;
+}
+
+function lfeEl(routing: LfeRouting, el: number): string {
+  if (routing === "down") return "W + Z";
+  if (routing === "position") return `${rad2deg(el).toFixed(1)}°`;
+  return "—";
+}
+
+export function MetadataInspector({
+  analysis,
+  lfeRouting = "omni",
+}: {
+  analysis: AnalysisResult;
+  lfeRouting?: LfeRouting;
+}) {
   const { t } = useLang();
-  const [open, setOpen] = useState(true);
+
   const [expanded, setExpanded] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
