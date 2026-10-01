@@ -104,8 +104,9 @@ export function SpatialViewer({
 
 
       const project = (az: number, el: number, r: number) => {
-        // world: x right, y front, z up
-        const x = r * Math.cos(el) * Math.sin(-az);
+        // world: x right, y front, z up — positive azimuth is to the listener's left
+        const x = r * Math.cos(el) * Math.sin(az);
+
         const y = r * Math.cos(el) * Math.cos(az);
         const z = r * Math.sin(el);
         const xr = x * Math.cos(yaw) - y * Math.sin(yaw);
