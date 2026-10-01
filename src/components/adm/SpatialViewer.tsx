@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 
 import { positionAt } from "@/engine/adm";
-import type { LevelState, RenderSource } from "@/engine/types";
+import type { LevelState, LfeRouting, RenderSource } from "@/engine/types";
 
 interface Props {
   sources: RenderSource[];
@@ -11,6 +11,15 @@ interface Props {
   spinning?: boolean;
   /** live / scanned input levels; dots scale with the signal when present */
   levelsRef?: RefObject<LevelState>;
+  /** how the LFE channel is encoded — drives the LFE marker */
+  lfeRouting?: LfeRouting;
+}
+
+/** Objects often arrive as "Stem - Role"; only the role part is worth drawing. */
+function shortLabel(name: string): string {
+  const parts = name.split(/\s+[-–/]\s+/);
+  const tail = parts[parts.length - 1]?.trim();
+  return tail && tail.length > 0 ? tail : name;
 }
 
 /** Isometric 3D dome view of bed anchors and animated object trajectories. */
@@ -21,13 +30,15 @@ export function SpatialViewer({
   playheadSample,
   spinning = true,
   levelsRef,
+  lfeRouting = "omni",
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const yawRef = useRef(0.6);
   const dragRef = useRef<{ x: number; yaw: number } | null>(null);
-  const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning });
-  stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning };
+  const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting });
+  stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting };
   const levels = levelsRef;
+
 
 
   useEffect(() => {
