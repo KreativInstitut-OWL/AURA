@@ -705,7 +705,9 @@ function Workstation() {
                   sampleRate={analysis.container.format.sampleRate}
                   playheadSample={playhead}
                   levelsRef={levelsRef}
+                  lfeRouting={lfeRouting}
                 />
+
 
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   {t("Squares are bed anchors, dots are objects on their interpolated paths. Drag to rotate.", "Quadrate sind Bed-Anker, Punkte sind Objekte auf ihren interpolierten Pfaden. Zum Drehen ziehen.")}
