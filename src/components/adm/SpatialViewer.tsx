@@ -154,33 +154,62 @@ export function SpatialViewer({
       for (const s of srcs.filter((x) => x.kind === "bed" && !x.isLFE)) {
         const p = project(s.azimuth, s.elevation, 1);
         const lv = levelOf(s.channelIndex);
-        const half = lv < 0 ? 4 : 2 + lv * 5;
+        const half = lv < 0 ? 5 : 5 + lv * 4;
         ctx.fillStyle = cPrimary;
-        ctx.globalAlpha = (p.depth > 0 ? 1 : 0.5) * (lv < 0 ? 1 : 0.35 + lv * 0.65);
+        ctx.globalAlpha = (p.depth > 0 ? 1 : 0.5) * (lv < 0 ? 1 : 0.6 + lv * 0.4);
         ctx.beginPath();
         ctx.rect(p.sx - half, p.sy - half, half * 2, half * 2);
         ctx.fill();
         ctx.globalAlpha = p.depth > 0 ? 1 : 0.5;
         ctx.fillStyle = cMuted;
-        ctx.fillText(s.name, p.sx, p.sy - 9);
+        ctx.fillText(shortLabel(s.name), p.sx, p.sy - half - 5);
         ctx.globalAlpha = 1;
       }
 
 
-      // LFE is omnidirectional: shown at the origin, not as a loudspeaker point
-      if (srcs.some((x) => x.isLFE)) {
-        const o = project(0, 0, 0);
-        ctx.strokeStyle = cMuted;
-        ctx.globalAlpha = 0.7;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.arc(o.sx, o.sy, 9, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = cMuted;
-        ctx.fillText("LFE · omni → W", o.sx, o.sy + 22);
-        ctx.globalAlpha = 1;
+      // LFE marker — placement and caption follow the chosen routing
+      const lfeSources = srcs.filter((x) => x.isLFE);
+      if (lfeSources.length) {
+        const positional = lfeMode === "position";
+        for (const l of lfeSources) {
+          const o = positional ? project(l.azimuth, l.elevation, 1) : project(0, 0, 0);
+          const lv = levelOf(l.channelIndex);
+          const radius = (lv < 0 ? 9 : 7 + lv * 5) * (positional ? 0.8 : 1);
+          ctx.strokeStyle = lfeMode === "off" ? cBorder : cMuted;
+          ctx.globalAlpha = lfeMode === "off" ? 0.4 : 0.75;
+          ctx.setLineDash(lfeMode === "position" ? [] : [3, 3]);
+          ctx.beginPath();
+          ctx.arc(o.sx, o.sy, radius, 0, Math.PI * 2);
+          ctx.stroke();
+          if (lfeMode === "down") {
+            // short downward tail: energy is steered toward the floor
+            ctx.beginPath();
+            ctx.moveTo(o.sx, o.sy + radius);
+            ctx.lineTo(o.sx, o.sy + radius + 10);
+            ctx.moveTo(o.sx - 4, o.sy + radius + 5);
+            ctx.lineTo(o.sx, o.sy + radius + 10);
+            ctx.lineTo(o.sx + 4, o.sy + radius + 5);
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
+          ctx.fillStyle = cMuted;
+          const caption =
+            lfeMode === "omni"
+              ? `${l.name} · omni → W`
+              : lfeMode === "down"
+                ? `${l.name} · cardioid ↓ (W + Z)`
+                : lfeMode === "position"
+                  ? `${l.name} · ${((l.azimuth * 180) / Math.PI).toFixed(0)}° / ${((l.elevation * 180) / Math.PI).toFixed(0)}°`
+                  : `${l.name} · off`;
+          ctx.fillText(
+            caption,
+            o.sx,
+            o.sy + radius + (lfeMode === "down" ? 26 : 16),
+          );
+          ctx.globalAlpha = 1;
+        }
       }
+
 
       // Object trajectories
       const objects = srcs.filter((x) => x.kind === "object");
