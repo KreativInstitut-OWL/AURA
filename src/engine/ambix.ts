@@ -73,11 +73,29 @@ export function buildAmbixHeader(opts: AmbixHeaderOptions): Uint8Array<ArrayBuff
 }
 
 /** Planar float buffers -> interleaved little-endian 24-bit PCM. */
+/** Per-channel error-feedback history for noise-shaped dither (3 taps per channel). */
+export function makeDitherState(channels: number): Float32Array {
+  return new Float32Array(channels * 3);
+}
+
+// 3-tap psychoacoustic error-feedback filter (Wannamaker): pushes requantization
+// noise out of the 2–5 kHz region of highest hearing sensitivity toward the top
+// of the band. Applied with TPDF (±1 LSB) dither before rounding.
+const NS1 = 1.623, NS2 = -0.982, NS3 = 0.109;
+let rng = 0x9e3779b9 | 0;
+function rand(): number {
+  rng ^= rng << 13;
+  rng ^= rng >>> 17;
+  rng ^= rng << 5;
+  return (rng >>> 0) / 4294967296;
+}
+
 export function packInt24(
   planar: Float32Array,
   channels: number,
   frames: number,
   out: Uint8Array,
+  dither?: Float32Array,
 ): void {
   let p = 0;
   for (let f = 0; f < frames; f++) {
@@ -85,7 +103,22 @@ export function packInt24(
       let s = planar[c * frames + f]!;
       if (s > 1) s = 1;
       else if (s < -1) s = -1;
-      const q = Math.max(-8388608, Math.min(8388607, Math.round(s * 8388607)));
+      let q: number;
+      if (dither) {
+        const h = c * 3;
+        const x = s * 8388607;
+        // subtract filtered past error, then add TPDF noise and round
+        const shaped = x - (NS1 * dither[h]! + NS2 * dither[h + 1]! + NS3 * dither[h + 2]!);
+        q = Math.round(shaped + rand() - rand());
+        q = Math.max(-8388608, Math.min(8388607, q));
+        dither[h + 2] = dither[h + 1]!;
+        dither[h + 1] = dither[h]!;
+        // error = output − wanted (clamped so hard clipping can't blow up the loop)
+        const e = q - shaped;
+        dither[h] = e > 4 ? 4 : e < -4 ? -4 : e;
+      } else {
+        q = Math.max(-8388608, Math.min(8388607, Math.round(s * 8388607)));
+      }
       const u = q < 0 ? q + 0x1000000 : q;
       out[p++] = u & 0xff;
       out[p++] = (u >> 8) & 0xff;
