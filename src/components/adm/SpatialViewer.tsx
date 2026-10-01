@@ -57,8 +57,14 @@ export function SpatialViewer({
     const cMuted = color("--muted-foreground", "#888");
 
     const draw = () => {
-      const { sources: srcs, frameCount: total, playheadSample: head, spinning: spin } =
-        stateRef.current;
+      const {
+        sources: srcs,
+        frameCount: total,
+        playheadSample: head,
+        spinning: spin,
+        lfeRouting: lfeMode,
+      } = stateRef.current;
+
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
