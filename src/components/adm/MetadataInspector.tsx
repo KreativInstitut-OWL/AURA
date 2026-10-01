@@ -86,8 +86,9 @@ export function MetadataInspector({
   lfeRouting?: LfeRouting;
 }) {
   const { t } = useLang();
-
+  const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
+
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
