@@ -187,11 +187,20 @@ export function MetadataInspector({ analysis }: { analysis: AnalysisResult }) {
                             </Tag>
                           </td>
                           <td className="p-2 text-right text-muted-foreground">
-                            {!s ? "—" : s.isLFE ? "omni → W" : `${rad2deg(s.azimuth).toFixed(1)}°`}
+                            {!s
+                              ? "—"
+                              : s.isLFE
+                                ? lfeAz(lfeRouting, s.azimuth)
+                                : `${rad2deg(s.azimuth).toFixed(1)}°`}
                           </td>
                           <td className="p-2 text-right text-muted-foreground">
-                            {!s || s.isLFE ? "—" : `${rad2deg(s.elevation).toFixed(1)}°`}
+                            {!s
+                              ? "—"
+                              : s.isLFE
+                                ? lfeEl(lfeRouting, s.elevation)
+                                : `${rad2deg(s.elevation).toFixed(1)}°`}
                           </td>
+
                           <td className="p-2">
                             {s && (
                               <Tag tone={s.points.length ? "primary" : "muted"}>
