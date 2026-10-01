@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import { positionAt } from "./adm";
-import { buildAmbixHeader, packInt24 } from "./ambix";
+import { buildAmbixHeader, makeDitherState, packInt24 } from "./ambix";
 import { makeDecoder } from "./decode-pcm";
 import { channelCount, encodeDirection } from "./sh";
 import type { RenderSource, WorkerRequest, WorkerResponse } from "./types";
@@ -109,6 +109,7 @@ async function render(req: WorkerRequest) {
 
   const planar = new Float32Array(M * FRAME_BLOCK);
   const outBytes = new Uint8Array(M * FRAME_BLOCK * 3);
+  const ditherState = makeDitherState(M);
   const cA = new Float32Array(M);
   const cB = new Float32Array(M);
   const peaks = new Float32Array(M);
@@ -224,7 +225,7 @@ async function render(req: WorkerRequest) {
       }
     }
 
-    packInt24(planar, M, frames, outBytes);
+    packInt24(planar, M, frames, outBytes, ditherState);
     await write(outBytes.subarray(0, M * frames * 3));
 
     frame += frames;
