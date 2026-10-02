@@ -169,7 +169,7 @@ export function SpatialViewer({
 
       // LFE marker — placement and caption follow the chosen routing
       const lfeSources = srcs.filter((x) => x.isLFE);
-      if (lfeSources.length) {
+      if (lfeSources.length && lfeMode !== "off") {
         const positional = lfeMode === "position";
         for (const l of lfeSources) {
           const o = positional ? project(l.azimuth, l.elevation, 1) : project(0, 0, 0);
