@@ -850,7 +850,15 @@ function Workstation() {
           </Panel>
 
 
-          <Panel title={t("Render & export", "Rendern & Export")} icon={<Download className="size-3.5" />}>
+          <Panel
+            title={t("Render & export", "Rendern & Export")}
+            icon={<Download className="size-3.5" />}
+            right={
+              <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                24b · WAV · {t("Dithered", "Gedithert")}
+              </span>
+            }
+          >
             {!rendering ? (
               <button
                 onClick={() => void startRender()}

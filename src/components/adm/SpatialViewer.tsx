@@ -175,8 +175,8 @@ export function SpatialViewer({
           const o = positional ? project(l.azimuth, l.elevation, 1) : project(0, 0, 0);
           const lv = levelOf(l.channelIndex);
           const radius = (lv < 0 ? 9 : 7 + lv * 5) * (positional ? 0.8 : 1);
-          ctx.strokeStyle = lfeMode === "off" ? cBorder : cMuted;
-          ctx.globalAlpha = lfeMode === "off" ? 0.4 : 0.75;
+          ctx.strokeStyle = cMuted;
+          ctx.globalAlpha = 0.75;
           ctx.setLineDash(lfeMode === "position" ? [] : [3, 3]);
           ctx.beginPath();
           ctx.arc(o.sx, o.sy, radius, 0, Math.PI * 2);
@@ -200,7 +200,7 @@ export function SpatialViewer({
                 ? `${l.name} · cardioid ↓ (W + Z)`
                 : lfeMode === "position"
                   ? `${l.name} · ${((l.azimuth * 180) / Math.PI).toFixed(0)}° / ${((l.elevation * 180) / Math.PI).toFixed(0)}°`
-                  : `${l.name} · off`;
+                  : `${l.name}`;
           ctx.fillText(
             caption,
             o.sx,
