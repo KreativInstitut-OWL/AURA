@@ -822,7 +822,7 @@ export function analyseAdm(
   }
 
   const beds = sources.filter((s) => s.kind === "bed");
-  if (beds.length > 10) {
+  if (profile === "dolby" && beds.length > 10) {
     warnings.push(`Bed has ${beds.length} channels; Dolby Atmos beds are capped at 7.1.2 (10 ch).`);
   }
   sources.sort((a, b) => a.channelIndex - b.channelIndex);
