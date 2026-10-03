@@ -134,7 +134,7 @@ export const DOLBY_ROOM_ASPECT = 1 / 0.6805225015;
 // Dolby "How to Design a Dolby Atmos Mix Room" — recommended angles:
 // L/R 30°, Wide 50° (L/R reference line +20°), Side surround 100°, Rear 135°.
 const EAR_GEO = [0, 45, 55.7638, 90, 135, 180];
-const EAR_TARGET = [0, 30, 50, 90, 135, 180];
+const EAR_TARGET = [0, 30, 50, 100, 135, 180];
 
 function warpEarAzimuth(absDeg: number): number {
   for (let i = 1; i < EAR_GEO.length; i++) {
