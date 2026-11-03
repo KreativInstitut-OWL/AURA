@@ -1049,35 +1049,37 @@ function Workstation() {
         </div>
       </div>
 
-      <footer className="space-y-2 border-t border-border px-5 py-6 text-center text-[11px] text-muted-foreground">
-        <p className="mx-auto max-w-2xl text-foreground/80">
-          <ShieldCheck className="mr-1.5 inline size-3.5 text-[var(--v2-valid)]" />
-          {t(
-            "Your audio files never leave your computer. All parsing, spatial math and Ambisonic encoding happen directly on your CPU inside this browser tab. No files are uploaded to any server.",
-            "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Parsing, die Raumberechnung und die Ambisonics-Kodierung laufen direkt auf deiner CPU in diesem Browser-Tab. Es werden keine Dateien auf einen Server hochgeladen.",
-          )}
-        </p>
-        <p className="mx-auto max-w-3xl">
-          {t(
-            "AURA is an independent tool and is not affiliated with, endorsed by or certified by Dolby Laboratories, Inc. It reads the open Audio Definition Model (ITU-R BS.2076) metadata contained in the files you provide. Dolby, Dolby Atmos and the double-D symbol are trademarks of Dolby Laboratories, Inc.; all trademarks are used for identification purposes only.",
-            "AURA ist ein unabhängiges Werkzeug und steht in keiner Verbindung zu Dolby Laboratories, Inc., wird von dort weder unterstützt noch zertifiziert. Es liest die offenen Audio-Definition-Model-Metadaten (ITU-R BS.2076) der von dir bereitgestellten Dateien. Dolby, Dolby Atmos und das Doppel-D-Symbol sind Marken von Dolby Laboratories, Inc.; alle Marken werden ausschließlich zu Identifikationszwecken genannt.",
-          )}
-        </p>
-      </footer>
-      <div className="flex items-center gap-5 border-t border-border px-5 py-5">
-        <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL">
-          <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto dark:hidden" />
-          <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto dark:block" />
-        </a>
-        <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <a href={t("https://kreativ.institute/en/impressum", "https://kreativ.institute/de/impressum")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
-            {t("Imprint", "Impressum")} <ArrowUpRight className="size-3" />
+      <footer className="flex flex-col gap-5 border-t border-border px-5 py-6 text-[11px] text-muted-foreground md:flex-row md:items-center md:gap-8">
+        <div className="flex shrink-0 items-center gap-5">
+          <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL">
+            <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto dark:hidden" />
+            <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto dark:block" />
           </a>
-          <a href={t("https://kreativ.institute/en/datenschutz", "https://kreativ.institute/de/datenschutz")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
-            {t("Privacy Policy", "Datenschutz")} <ArrowUpRight className="size-3" />
-          </a>
+          <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide">
+            <a href={t("https://kreativ.institute/en/impressum", "https://kreativ.institute/de/impressum")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+              {t("Imprint", "Impressum")} <ArrowUpRight className="size-3" />
+            </a>
+            <a href={t("https://kreativ.institute/en/datenschutz", "https://kreativ.institute/de/datenschutz")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+              {t("Privacy Policy", "Datenschutz")} <ArrowUpRight className="size-3" />
+            </a>
+          </div>
         </div>
-      </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="text-foreground/80">
+            <ShieldCheck className="mr-1.5 inline size-3.5 text-[var(--v2-valid)]" />
+            {t(
+              "Your audio files never leave your computer. All parsing, spatial math and Ambisonic encoding happen directly on your CPU inside this browser tab. No files are uploaded to any server.",
+              "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Parsing, die Raumberechnung und die Ambisonics-Kodierung laufen direkt auf deiner CPU in diesem Browser-Tab. Es werden keine Dateien auf einen Server hochgeladen.",
+            )}
+          </p>
+          <p>
+            {t(
+              "AURA is an independent tool and is not affiliated with, endorsed by or certified by Dolby Laboratories, Inc. It reads the open Audio Definition Model (ITU-R BS.2076) metadata contained in the files you provide. Dolby, Dolby Atmos and the double-D symbol are trademarks of Dolby Laboratories, Inc.; all trademarks are used for identification purposes only.",
+              "AURA ist ein unabhängiges Werkzeug und steht in keiner Verbindung zu Dolby Laboratories, Inc., wird von dort weder unterstützt noch zertifiziert. Es liest die offenen Audio-Definition-Model-Metadaten (ITU-R BS.2076) der von dir bereitgestellten Dateien. Dolby, Dolby Atmos und das Doppel-D-Symbol sind Marken von Dolby Laboratories, Inc.; alle Marken werden ausschließlich zu Identifikationszwecken genannt.",
+            )}
+          </p>
+        </div>
+      </footer>
       <PrivacyDialog open={privacy.open} onOpenChange={privacy.setOpen} />
     </div>
   );
