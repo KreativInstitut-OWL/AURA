@@ -3,7 +3,8 @@ import { positionAt } from "./adm";
 import { buildAmbixHeader, packInt24 } from "./ambix";
 import { makeDecoder } from "./decode-pcm";
 import { channelCount, encodeDirection } from "./sh";
-import type { RenderSource, WorkerRequest, WorkerResponse } from "./types";
+import { ClippingGate } from "./clipping";
+import type { RenderSource, RenderWorkerMessage, WorkerRequest, WorkerResponse } from "./types";
 
 const FRAME_BLOCK = 2048; // processing frames per pass
 const RAMP = 64; // sub-block coefficient ramp interval
@@ -54,7 +55,7 @@ class Butterworth4 {
 const post = (msg: WorkerResponse, transfer: Transferable[] = []) =>
   (self as unknown as Worker).postMessage(msg, transfer);
 
-async function render(req: WorkerRequest) {
+async function render(req: WorkerRequest, gate: ClippingGate) {
   const { file, config, container } = req;
   const M = channelCount(config.order);
   const totalFrames = container.frameCount;
@@ -91,6 +92,8 @@ async function render(req: WorkerRequest) {
   // Output sink
   let writable: FileSystemWritableFileStream | null = null;
   const blobParts: BlobPart[] = [];
+  let closed = false;
+  try {
   if (req.handle) writable = await req.handle.createWritable();
   const header = buildAmbixHeader({
     channels: M,
@@ -118,6 +121,7 @@ async function render(req: WorkerRequest) {
   let lastPost = 0;
   let maxPeak = 0;
   let maxPeakChannel = 0;
+  let pausedMs = 0;
 
   // Level envelope of the *input* channels, measured on the same sample grid
   // the spatial viewer uses, so the animation stays frame-accurate.
@@ -129,11 +133,13 @@ async function render(req: WorkerRequest) {
   const allSources = req.sources;
 
   while (frame < totalFrames) {
+    if (gate.cancelled) return;
     const frames = Math.min(FRAME_BLOCK, totalFrames - frame);
     const byteStart = container.dataOffset + frame * container.blockAlign;
     const byteEnd = byteStart + frames * container.blockAlign;
     const raw = new Uint8Array(await file.slice(byteStart, byteEnd).arrayBuffer());
     if (raw.byteLength < frames * container.blockAlign) break;
+    if (gate.cancelled) return;
 
     // --- Input level metering (drives the spatial viewer) ---
     sourcePeaks.fill(0);
@@ -224,6 +230,19 @@ async function render(req: WorkerRequest) {
       }
     }
 
+    // Hold the current float block before quantisation or writing any clipped audio.
+    if (gate.shouldPause(maxPeak)) {
+      const pausedAt = performance.now();
+      const waiting = gate.wait();
+      post({
+        type: "clipping", framesDone: frame, totalFrames, bytesWritten,
+        elapsedMs: pausedAt - started - pausedMs, maxPeak, maxPeakChannel,
+      });
+      await waiting;
+      pausedMs += performance.now() - pausedAt;
+      if (gate.cancelled) return;
+    }
+
     packInt24(planar, M, frames, outBytes);
     await write(outBytes.subarray(0, M * frames * 3));
 
@@ -237,7 +256,7 @@ async function render(req: WorkerRequest) {
         totalFrames,
         peaks: new Float32Array(peaks),
         bytesWritten,
-        elapsedMs: now - started,
+        elapsedMs: now - started - pausedMs,
         maxPeak,
         maxPeakChannel,
         sourcePeaks: new Float32Array(sourcePeaks),
@@ -245,14 +264,16 @@ async function render(req: WorkerRequest) {
     }
   }
 
+  if (gate.cancelled) return;
   if (writable) await writable.close();
+  closed = true;
   const envCopy = new Float32Array(envelope);
   post(
     {
       type: "done",
       blob: writable ? null : new Blob(blobParts, { type: "audio/wav" }),
       bytesWritten,
-      elapsedMs: performance.now() - started,
+      elapsedMs: performance.now() - started - pausedMs,
       maxPeak,
       maxPeakChannel,
       // The render already read every sample, so the viewer gets the full
@@ -264,11 +285,24 @@ async function render(req: WorkerRequest) {
     [envCopy.buffer],
   );
 
+  } finally {
+    // Discard the unfinished direct-to-disk transaction rather than leave a partial WAV.
+    if (writable && !closed) await writable.abort();
+  }
 }
 
-self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
-  if (ev.data?.type !== "render") return;
-  render(ev.data).catch((err: unknown) => {
+let activeGate: ClippingGate | null = null;
+self.onmessage = (ev: MessageEvent<RenderWorkerMessage>) => {
+  if (ev.data?.type === "continue") { activeGate?.continue(); return; }
+  if (ev.data?.type === "cancel") { activeGate?.cancel(); return; }
+  if (ev.data?.type !== "render" || activeGate) return;
+  const gate = new ClippingGate();
+  activeGate = gate;
+  render(ev.data, gate).then(() => {
+    if (gate.cancelled) post({ type: "cancelled" });
+  }).catch((err: unknown) => {
     post({ type: "error", message: err instanceof Error ? err.message : String(err) });
+  }).finally(() => {
+    activeGate = null;
   });
 };
