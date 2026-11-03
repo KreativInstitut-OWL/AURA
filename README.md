@@ -23,6 +23,11 @@ Implementation specifications:
 
 Reference the attached architecture and build plan document for full mathematical definitions and pipeline details.
 
+## License
+
+Released under the [MIT License](./LICENSE) — © Sascha Armin Etezazi, KreativInstitut.OWL. Third-party trademarks (e.g. Dolby) belong to their owners; used here only for nominative-fair-use compatibility descriptions.
+
+
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
