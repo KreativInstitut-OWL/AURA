@@ -139,6 +139,16 @@ export type WorkerRequest = {
 
 export type WorkerResponse =
   | {
+      type: "clipping";
+      framesDone: number;
+      totalFrames: number;
+      bytesWritten: number;
+      elapsedMs: number;
+      maxPeak: number;
+      maxPeakChannel: number;
+    }
+  | { type: "cancelled" }
+  | {
       type: "progress";
       framesDone: number;
       totalFrames: number;
@@ -165,6 +175,8 @@ export type WorkerResponse =
       binSamples: number;
     }
   | { type: "error"; message: string };
+
+export type RenderWorkerMessage = WorkerRequest | { type: "continue" | "cancel" };
 
 /** Time resolution of the level envelope shown in the spatial viewer. */
 export const ENVELOPE_BIN_SEC = 0.05;

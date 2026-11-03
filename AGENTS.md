@@ -15,3 +15,5 @@
 - The AURA UI is themed by the `.v2-theme` scope in `src/styles.css`, light by default with a `.dark` class on `<html>`.
 - Binaural audition is disabled in the UI but its engine stays in the repo (`src/lib/hoast.ts`, `src/components/adm/BinauralDeck.tsx`, `src/engine/preview.worker.ts`, `src/engine/decode.worker.ts`) for a future version — do not delete.
 - The render worker never buffers output in memory when a `FileSystemFileHandle` is available; without one it returns a blob that the page downloads automatically — this keeps multi-gigabyte renders from crashing the tab.
+- Clipping decisions use a worker message gate before quantisation: cancellation aborts the writable transaction, and explicit continuation acknowledges hard clipping for the remainder of that render; no limiter is introduced.
+- Gain recommendations use the shared clipping helper so paused and completed renders apply the same safety margin and rounding.
