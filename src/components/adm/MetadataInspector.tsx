@@ -73,7 +73,7 @@ function lfeAz(routing: LfeRouting, az: number): string {
 }
 
 function lfeEl(routing: LfeRouting, el: number): string {
-  if (routing === "down") return "W + Z";
+  if (routing === "down") return "W − Z";
   if (routing === "position") return `${rad2deg(el).toFixed(1)}°`;
   return "—";
 }
@@ -148,7 +148,7 @@ export function MetadataInspector({
         className="flex w-full items-center gap-2 text-left text-sm font-semibold uppercase tracking-wide text-muted-foreground"
       >
         {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        <Search className="size-4 text-primary" /> {t("Metadata inspector", "Metadaten-Inspektor")}
+        <Search className="size-4 text-primary" /> {t("Track & Source Inspector", "Spur- & Quell-Inspektor")}
         <span className="ml-auto font-mono text-[11px] normal-case tracking-normal">
           {counts.total} {t("tracks", "Spuren")} · {counts.beds} Bed · {counts.objects} {t("obj", "Obj.")} ·{" "}
           <span className={counts.unresolved ? "text-destructive" : ""}>

@@ -69,7 +69,7 @@ type Order = (typeof ORDERS)[number];
 
 const LFE_ROUTINGS: [LfeRouting, string, string, string, string][] = [
   ["omni", "Omnidirectional", "Omnidirektional", "W only", "nur W"],
-  ["down", "Downward", "Nach unten", "W + Z cardioid", "W-+-Z-Niere"],
+  ["down", "Lower hemisphere", "Untere Hemisphäre", "cardioid ↓ (W − Z)", "Niere ↓ (W − Z)"],
   ["position", "Speaker position", "Lautsprecher-Position", "encoded", "kodiert"],
   ["off", "Off", "Aus", "LFE excluded", "LFE ausgeschlossen"],
 ];
@@ -511,7 +511,7 @@ function Workstation() {
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
             >
               <ShieldCheck className="size-3.5 text-[var(--v2-valid)]" />
-              {t("Runs locally", "Läuft lokal")}
+              {t("100% Offline", "100% offline")}
             </button>
             <ThemeToggle />
             <div className="inline-flex rounded-full border border-border p-0.5">
@@ -598,7 +598,7 @@ function Workstation() {
 
             {analysing && (
               <p className="mt-3 animate-pulse text-xs text-muted-foreground">
-                {t("Scanning container…", "Container wird gelesen…")}
+                {t("Scanning container…", "Container wird analysiert…")}
               </p>
             )}
 
@@ -681,7 +681,7 @@ function Workstation() {
         {/* ─────────── COLUMN 2 · MONITORING ─────────── */}
         <div className="space-y-4">
           <Panel
-            title={t("Spatial trajectories", "Räumliche Bewegungspfade")}
+            title={t("Object paths", "Objektpfade")}
             icon={<Boxes className="size-3.5" />}
             right={
               analysis ? (
@@ -710,7 +710,7 @@ function Workstation() {
 
 
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {t("Squares are bed anchors, dots are objects on their interpolated paths. Drag to rotate.", "Quadrate sind Bed-Anker, Punkte sind Objekte auf ihren interpolierten Pfaden. Zum Drehen ziehen.")}
+                  {t("Squares are bed anchors, dots are objects on their interpolated paths. Drag to rotate.", "Quadrate sind Bed-Anker, Punkte sind Objekte auf ihren Objektpfaden. Zum Drehen ziehen.")}
                 </p>
               </>
             ) : (
@@ -732,7 +732,7 @@ function Workstation() {
 
           {analysis && <MetadataInspector analysis={analysis} lfeRouting={lfeRouting} />}
           {!analysis && (
-            <Panel title={t("Metadata inspector", "Metadaten-Inspektor")}>
+            <Panel title={t("Track & Source Inspector", "Spur- & Quell-Inspektor")}>
               <Empty label={t("Chunk map, reference chains and raw axml appear here after loading.", "Chunk-Übersicht, Referenzketten und rohes axml erscheinen hier nach dem Laden.")} />
             </Panel>
           )}
@@ -771,7 +771,7 @@ function Workstation() {
             </div>
           </Panel>
 
-          <Panel title={t("LFE routing", "LFE-Routing")}>
+          <Panel title={t("LFE Channel Treatment", "Behandlung des LFE-Kanals")}>
             <div className="flex flex-wrap gap-2">
               {LFE_ROUTINGS.map(([mode, labelEn, labelDe, hintEn, hintDe]) => (
                 <Pill
@@ -793,8 +793,8 @@ function Workstation() {
                 )}
               {lfeRouting === "down" &&
                 t(
-                  "The LFE channel is filtered at 120 Hz and encoded as a downward cardioid (W + Z): full level at the floor, an acoustic null at the ceiling. Best for loudspeaker setups, keeping sub energy out of the height speakers.",
-                  "Der LFE-Kanal wird bei 120 Hz gefiltert und als nach unten gerichtete Niere (W + Z) kodiert: voller Pegel am Boden, akustische Null an der Decke. Ideal für Lautsprecher-Setups, da Höhenlautsprecher frei von Subbass bleiben.",
+                  "The LFE channel is filtered at 120 Hz and encoded as a cardioid into the lower hemisphere (W − Z). Best for loudspeaker setups, keeping sub energy out of height speakers.",
+                  "Der LFE-Kanal wird bei 120 Hz gefiltert und als Niere in die untere Hemisphäre (W − Z) kodiert. Ideal für Lautsprecher-Setups, da Deckenlautsprecher frei von Subbass bleiben.",
                 )}
               {lfeRouting === "position" &&
                 t(
@@ -925,8 +925,8 @@ function Workstation() {
                 <div className="mt-3 rounded-lg border border-accent/60 bg-accent/10 p-3 text-xs">
                   <TriangleAlert className="mr-2 inline size-4 text-accent" />
                   {t(
-                    `Clipping detected: peak reached +${clip.peakDb.toFixed(1)} dBFS on ACN ${clip.channel}. The 24-bit output was limited.`,
-                    `Übersteuerung erkannt: Spitzenwert +${clip.peakDb.toFixed(1)} dBFS auf ACN ${clip.channel}. Die 24-Bit-Ausgabe wurde beschnitten.`,
+                    `Clipping detected: peak reached +${clip.peakDb.toFixed(1)} dBFS on ACN ${clip.channel}. The 24-bit output was hard-clipped (no limiter applied).`,
+                    `Übersteuerung erkannt: Spitzenwert +${clip.peakDb.toFixed(1)} dBFS auf ACN ${clip.channel}. Die 24-Bit-Ausgabe wurde hart begrenzt (kein Limiter aktiv).`,
                   )}
                   <button
                     onClick={() => {

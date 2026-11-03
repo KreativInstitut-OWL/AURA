@@ -10,9 +10,9 @@ function read(): Lang {
   if (current) return current;
   try {
     const s = localStorage.getItem(KEY);
-    current = s === "en" ? "en" : "de";
+    current = s === "de" ? "de" : "en";
   } catch {
-    current = "de";
+    current = "en";
   }
   return current;
 }
@@ -33,9 +33,9 @@ function subscribe(f: () => void) {
   return () => listeners.delete(f);
 }
 
-/** German is the default language; English is opt-in and remembered. */
+/** English is the default language; German is opt-in and remembered. */
 export function useLang() {
-  const lang = useSyncExternalStore(subscribe, read, () => "de" as Lang);
+  const lang = useSyncExternalStore(subscribe, read, () => "en" as Lang);
   /** t(english, german) */
   const t = useCallback((en: string, de: string) => (lang === "de" ? de : en), [lang]);
   return { lang, setLang, t };

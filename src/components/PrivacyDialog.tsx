@@ -37,14 +37,15 @@ export function PrivacyDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         <div className="flex size-10 items-center justify-center rounded-full bg-[var(--v2-valid)]/10">
           <ShieldCheck className="size-5 text-[var(--v2-valid)]" />
         </div>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--v2-valid)]">100% Offline</span>
         <DialogTitle className="text-lg tracking-tight">
           {t("Everything stays on your computer.", "Alles bleibt lokal auf deinem Rechner.")}
         </DialogTitle>
         <DialogDescription className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <span className="block">
             {t(
-              "Simple, free and without an account. No upload, no cloud: your ADM masters are read, rendered and auditioned entirely inside this browser tab.",
-              "Einfach, kostenlos und ohne Konto. Kein Upload, keine Cloud: Deine ADM-Master werden vollständig in diesem Browser-Tab gelesen, gerendert und vorgehört.",
+              "Simple, free and without an account. No upload, no cloud: your ADM masters are read and rendered entirely inside this browser tab.",
+              "Einfach, kostenlos und ohne Konto. Kein Upload, keine Cloud: Deine ADM-Master werden vollständig in diesem Browser-Tab gelesen und gerendert.",
             )}
           </span>
         </DialogDescription>
