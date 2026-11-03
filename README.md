@@ -43,3 +43,31 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Deploy with Coolify (Railpack)
+
+This is a TanStack Start app with a Nitro server, not a static Vite SPA.
+The production output is `.output`, not `dist`.
+
+- Select the **Railpack** build pack and leave the application in server mode
+  (not static-site mode).
+- `railpack.json` selects `bun run build:coolify`, which builds Nitro with the
+  `node-server` preset. Leave any custom build-command override empty, or set it
+  to `bun run build:coolify`.
+- The `start` script runs `node .output/server/index.mjs` and tells Railpack to
+  deploy a server instead of serving `dist` with Caddy. Leave any custom
+  start-command override empty, or set it to `bun run start`.
+- Set the exposed application port to **3000** and the runtime variables
+  `PORT=3000` and `HOST=0.0.0.0`. If health checks are enabled, use `/`.
+- Remove any `RAILPACK_SPA_OUTPUT_DIR` override, which forces static-site
+  detection even when a start script exists.
+
+To verify the production server locally:
+
+```sh
+bun install --frozen-lockfile
+bun run build:coolify
+PORT=3000 HOST=0.0.0.0 bun run start
+```
+
+The regular `build` script is unchanged, preserving Lovable's default build target.
