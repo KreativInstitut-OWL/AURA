@@ -1,4 +1,5 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { positionAt } from "@/engine/adm";
 import type { LevelState, LfeRouting, RenderSource } from "@/engine/types";
@@ -38,6 +39,9 @@ export function SpatialViewer({
   const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting });
   stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting };
   const levels = levelsRef;
+  const [autoRotate, setAutoRotate] = useState(true);
+  const autoRef = useRef(true);
+  autoRef.current = autoRotate;
 
 
 
@@ -48,13 +52,11 @@ export function SpatialViewer({
     if (!ctx) return;
     let raf = 0;
 
-    const css = getComputedStyle(document.documentElement);
-    const color = (name: string, fallback: string) =>
-      css.getPropertyValue(name).trim() || fallback;
-    const cPrimary = color("--primary", "#5ad");
-    const cAccent = color("--accent", "#fb0");
-    const cBorder = color("--border", "#444");
-    const cMuted = color("--muted-foreground", "#888");
+    // Plain hex per theme: UI tokens are oklch greys in dark mode and render grey on canvas.
+    const PALETTE = {
+      light: { bed: "#0284c7", obj: "#f59e0b", wire: "#94a3b8", label: "#64748b" },
+      dark: { bed: "#38bdf8", obj: "#fbbf24", wire: "#64748b", label: "#94a3b8" },
+    };
 
     const draw = () => {
       const {
@@ -64,6 +66,17 @@ export function SpatialViewer({
         spinning: spin,
         lfeRouting: lfeMode,
       } = stateRef.current;
+      const pal = document.documentElement.classList.contains("dark") ? PALETTE.dark : PALETTE.light;
+      const cPrimary = pal.bed;
+      const cAccent = pal.obj;
+      const cBorder = pal.wire;
+      const cMuted = pal.label;
+      const lower = srcs.some(
+        (x) =>
+          (x.kind === "bed" && !x.isLFE && x.elevation < -1e-3) ||
+          (x.isLFE && lfeMode === "position" && x.elevation < -1e-3) ||
+          (x.kind === "object" && x.points.some((pt) => pt.elevation < -1e-3)),
+      );
 
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = canvas.clientWidth;
@@ -75,7 +88,7 @@ export function SpatialViewer({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      if (spin && !dragRef.current) yawRef.current += 0.0025;
+      if (spin && autoRef.current && !dragRef.current) yawRef.current += 0.0025;
       const yaw = yawRef.current;
       const pitch = 0.5;
       const cx = w / 2;
@@ -120,9 +133,13 @@ export function SpatialViewer({
 
       // Dome wireframe
       ctx.lineWidth = 1;
-      for (const el of [0, Math.PI / 6, Math.PI / 3]) {
-        ctx.strokeStyle = el === 0 ? cBorder : cBorder;
-        ctx.globalAlpha = el === 0 ? 0.9 : 0.4;
+      ctx.strokeStyle = cBorder;
+      const rings = lower
+        ? [-Math.PI / 3, -Math.PI / 6, 0, Math.PI / 6, Math.PI / 3]
+        : [0, Math.PI / 6, Math.PI / 3];
+      for (const el of rings) {
+        ctx.lineWidth = el === 0 ? 1.5 : 1;
+        ctx.globalAlpha = el === 0 ? 1 : el < 0 ? 0.55 : 0.75;
         ctx.beginPath();
         for (let a = 0; a <= 360; a += 4) {
           const p = project((a * Math.PI) / 180, el, 1);
@@ -131,12 +148,14 @@ export function SpatialViewer({
         }
         ctx.stroke();
       }
-      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.6;
+      const eStart = lower ? -90 : -20;
       for (let a = 0; a < 360; a += 45) {
         ctx.beginPath();
-        for (let e = -20; e <= 90; e += 5) {
+        for (let e = eStart; e <= 90; e += 5) {
           const p = project((a * Math.PI) / 180, (e * Math.PI) / 180, 1);
-          if (e === -20) ctx.moveTo(p.sx, p.sy);
+          if (e === eStart) ctx.moveTo(p.sx, p.sy);
           else ctx.lineTo(p.sx, p.sy);
         }
         ctx.stroke();
@@ -144,11 +163,12 @@ export function SpatialViewer({
       ctx.globalAlpha = 1;
 
       // Front marker
-      const front = project(0, 0, 1.12);
+      // Placed outside the dome and below ear level so it never meets the C label.
+      const front = project(0, -0.12, 1.3);
       ctx.fillStyle = cMuted;
       ctx.font = "11px ui-monospace, monospace";
       ctx.textAlign = "center";
-      ctx.fillText("FRONT", front.sx, front.sy);
+      ctx.fillText("FRONT", front.sx, front.sy + 14);
 
       // Bed anchors (directional speakers only) — size follows the channel level
       for (const s of srcs.filter((x) => x.kind === "bed" && !x.isLFE)) {
@@ -197,7 +217,7 @@ export function SpatialViewer({
             lfeMode === "omni"
               ? `${l.name} · omni → W`
               : lfeMode === "down"
-                ? `${l.name} · cardioid ↓ (W + Z)`
+                ? `${l.name} · cardioid ↓ (W − Z)`
                 : lfeMode === "position"
                   ? `${l.name} · ${((l.azimuth * 180) / Math.PI).toFixed(0)}° / ${((l.elevation * 180) / Math.PI).toFixed(0)}°`
                   : `${l.name}`;
@@ -258,6 +278,7 @@ export function SpatialViewer({
   }, []);
 
   return (
+    <div className="relative">
     <canvas
       ref={canvasRef}
       className="h-[380px] w-full cursor-grab touch-none rounded-lg bg-background/40 active:cursor-grabbing"
@@ -273,5 +294,15 @@ export function SpatialViewer({
         dragRef.current = null;
       }}
     />
+      <button
+        type="button"
+        onClick={() => setAutoRotate((v) => !v)}
+        aria-label={autoRotate ? "Pause rotation" : "Resume rotation"}
+        title={autoRotate ? "Pause rotation" : "Resume rotation"}
+        className="absolute bottom-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
+      >
+        {autoRotate ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+      </button>
+    </div>
   );
 }
