@@ -67,7 +67,7 @@ function buildReport(analysis: AnalysisResult): string {
 /** LFE azimuth/elevation cells reflect the chosen routing, not a fixed omni assumption. */
 function lfeAz(routing: LfeRouting, az: number): string {
   if (routing === "omni") return "omni → W";
-  if (routing === "down") return "cardioid ↓";
+  if (routing === "down") return "lower hemisphere";
   if (routing === "off") return "off";
   return `${rad2deg(az).toFixed(1)}°`;
 }
