@@ -632,8 +632,8 @@ function Workstation() {
                       <PopoverContent align="end" className="v2-theme w-64 rounded-xl p-3 text-xs leading-relaxed">
                         <span className="font-semibold">{name}: </span>
                         {p === "dolby"
-                          ? t("Uses Dolby coordinates and places objects accordingly.", "Verwendet Dolby-Koordinaten und platziert Objekte entsprechend.")
-                          : t("Uses pure geometry and spherical projection of objects.", "Verwendet reine Geometrie und sphärische Projektion von Objekten.")}
+                          ? t("Maps room coordinates to standard Dolby speaker positions (matching Dolby Atmos Renderer exports).", "Mappt Raumkoordinaten auf Standard-Dolby-Lautsprecherpositionen (abgestimmt auf Dolby Atmos Renderer-Exporte).")
+                          : t("Direct spherical projection conforming to ITU-R BS.2076 / BS.2127.", "Direkte sphärische Projektion gemäß ITU-R BS.2076 / BS.2127.")}
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1070,11 +1070,11 @@ function Workstation() {
           <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto dark:block" />
         </a>
         <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <a href="https://kreativ.institute/de/impressum" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
-            Impressum <ArrowUpRight className="size-3" />
+          <a href={t("https://kreativ.institute/en/impressum", "https://kreativ.institute/de/impressum")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+            {t("Imprint", "Impressum")} <ArrowUpRight className="size-3" />
           </a>
-          <a href="https://kreativ.institute/de/datenschutz" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
-            Datenschutz <ArrowUpRight className="size-3" />
+          <a href={t("https://kreativ.institute/en/datenschutz", "https://kreativ.institute/de/datenschutz")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+            {t("Privacy Policy", "Datenschutz")} <ArrowUpRight className="size-3" />
           </a>
         </div>
       </div>
