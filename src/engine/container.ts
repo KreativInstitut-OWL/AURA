@@ -110,7 +110,8 @@ export async function parseContainer(file: File): Promise<ContainerInfo> {
   let axml: string | null = null;
   if (axmlRef) {
     const buf = await file.slice(axmlRef.offset, axmlRef.offset + axmlRef.size).arrayBuffer();
-    axml = dec.decode(new Uint8Array(buf));
+    // Writers often pad the chunk with NUL bytes, which browser XML parsers reject.
+    axml = dec.decode(new Uint8Array(buf)).replace(/\0+$/, "").trimEnd();
   }
 
   const bytesPerFrame = format.blockAlign || format.channels * (format.bitsPerSample / 8);
