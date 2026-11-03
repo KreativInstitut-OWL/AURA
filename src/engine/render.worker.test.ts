@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { expect, test } from "bun:test";
 import type { RenderWorkerMessage, WorkerRequest, WorkerResponse } from "./types";
 
@@ -47,7 +48,9 @@ test("direct-to-disk clipping holds the block; cancel aborts, continue closes wi
   await until(() => messages.some((m) => m.type === "done"));
   expect(messages.filter((m) => m.type === "clipping").length).toBe(1);
   expect(writes.length).toBe(3); // One header, exactly two audio blocks.
-  expect(writes.reduce((sum, b) => sum + b.length, 0)).toBe(writes[0].length + 4096 * 16 * 3);
+  const header = writes[0];
+  if (!header) throw new Error("Missing WAV header");
+  expect(writes.reduce((sum, b) => sum + b.length, 0)).toBe(header.length + 4096 * 16 * 3);
   expect(closed).toBe(1);
   expect(aborted).toBe(1);
 });

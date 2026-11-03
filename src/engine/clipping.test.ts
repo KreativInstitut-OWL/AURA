@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
 import { CLIPPING_HEADROOM_DB, ClippingGate, suggestedMasterGain } from "./clipping";
 
