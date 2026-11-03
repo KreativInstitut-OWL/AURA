@@ -1049,8 +1049,8 @@ function Workstation() {
         </div>
       </div>
 
-      <footer className="flex flex-col gap-5 border-t border-border px-5 py-6 text-[11px] text-muted-foreground md:flex-row md:items-center md:gap-8">
-        <div className="flex shrink-0 items-center gap-5">
+      <footer className="grid grid-cols-1 items-center gap-5 border-t border-border px-5 py-6 text-[11px] text-muted-foreground lg:grid-cols-[1fr_minmax(0,48rem)_1fr] lg:gap-8">
+        <div className="flex shrink-0 items-center justify-center gap-5 lg:justify-start">
           <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL">
             <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto dark:hidden" />
             <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto dark:block" />
@@ -1064,15 +1064,15 @@ function Workstation() {
             </a>
           </div>
         </div>
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-foreground/80">
+        <div className="min-w-0 space-y-2 text-center">
+          <p className="mx-auto max-w-2xl text-foreground/80">
             <ShieldCheck className="mr-1.5 inline size-3.5 text-[var(--v2-valid)]" />
             {t(
               "Your audio files never leave your computer. All parsing, spatial math and Ambisonic encoding happen directly on your CPU inside this browser tab. No files are uploaded to any server.",
               "Deine Audiodateien verlassen nie deinen Rechner. Das gesamte Parsing, die Raumberechnung und die Ambisonics-Kodierung laufen direkt auf deiner CPU in diesem Browser-Tab. Es werden keine Dateien auf einen Server hochgeladen.",
             )}
           </p>
-          <p>
+          <p className="mx-auto max-w-3xl">
             {t(
               "AURA is an independent tool and is not affiliated with, endorsed by or certified by Dolby Laboratories, Inc. It reads the open Audio Definition Model (ITU-R BS.2076) metadata contained in the files you provide. Dolby, Dolby Atmos and the double-D symbol are trademarks of Dolby Laboratories, Inc.; all trademarks are used for identification purposes only.",
               "AURA ist ein unabhängiges Werkzeug und steht in keiner Verbindung zu Dolby Laboratories, Inc., wird von dort weder unterstützt noch zertifiziert. Es liest die offenen Audio-Definition-Model-Metadaten (ITU-R BS.2076) der von dir bereitgestellten Dateien. Dolby, Dolby Atmos und das Doppel-D-Symbol sind Marken von Dolby Laboratories, Inc.; alle Marken werden ausschließlich zu Identifikationszwecken genannt.",
