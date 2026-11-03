@@ -5,6 +5,7 @@ import {
   CircleCheck,
   Download,
   FileAudio,
+  Info,
   Layers,
   Play,
   Radio,
@@ -22,6 +23,7 @@ import { MetadataInspector } from "@/components/adm/MetadataInspector";
 import { Meters } from "@/components/adm/Meters";
 import { SpatialViewer } from "@/components/adm/SpatialViewer";
 import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { analyseAdm, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
 import { channelCount } from "@/engine/sh";
@@ -64,6 +66,74 @@ export const Route = createFileRoute("/")({
 });
 
 const ORDERS = [3, 5, 7] as const;
+
+/** dB readout that turns into a number field on click; clamps −24…+6, 0.1 dB steps. */
+function GainReadout({
+  value,
+  disabled,
+  onChange,
+  title,
+}: {
+  value: number;
+  disabled: boolean;
+  onChange: (v: number) => void;
+  title: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const clickTimer = useRef<number | null>(null);
+  const commit = () => {
+    const n = Number(draft.replace(",", ".").replace("−", "-"));
+    if (draft.trim() !== "" && Number.isFinite(n)) {
+      onChange(Math.round(Math.min(6, Math.max(-24, n)) * 10) / 10);
+    }
+    setEditing(false);
+  };
+  if (editing && !disabled) {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px]">
+        <input
+          autoFocus
+          type="text"
+          inputMode="decimal"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            else if (e.key === "Escape") setEditing(false);
+          }}
+          aria-label="Master gain (dB)"
+          className="w-14 rounded border border-border bg-background px-1 py-0.5 text-right"
+        />
+        dB
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+        // wait briefly so a double-click resets instead of opening the field
+        if (clickTimer.current) window.clearTimeout(clickTimer.current);
+        clickTimer.current = window.setTimeout(() => {
+          setDraft(value.toFixed(1));
+          setEditing(true);
+        }, 220);
+      }}
+      onDoubleClick={() => {
+        if (clickTimer.current) window.clearTimeout(clickTimer.current);
+        onChange(0);
+      }}
+      title={title}
+      className="cursor-text select-none rounded px-1 font-mono text-[10px] hover:bg-secondary disabled:cursor-default disabled:opacity-60"
+    >
+      {value.toFixed(1)} dB
+    </button>
+  );
+}
 
 type Order = (typeof ORDERS)[number];
 
@@ -545,6 +615,24 @@ function Workstation() {
                 </button>
               ))}
             </div>
+            <Popover>
+              <PopoverTrigger
+                aria-label={t("About the modes", "Über die Modi")}
+                className="inline-flex size-6 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Info className="size-3.5" />
+              </PopoverTrigger>
+              <PopoverContent align="end" className="v2-theme w-72 space-y-2 rounded-xl p-3 text-xs leading-relaxed">
+                <p>
+                  <span className="font-semibold">{t("Dolby mode", "Dolby-Modus")}: </span>
+                  {t("Uses Dolby coordinates and places objects accordingly.", "Verwendet Dolby-Koordinaten und platziert Objekte entsprechend.")}
+                </p>
+                <p>
+                  <span className="font-semibold">{t("ITU mode", "ITU-Modus")}: </span>
+                  {t("Uses pure geometry and spherical projection of objects.", "Verwendet reine Geometrie und sphärische Projektion von Objekten.")}
+                </p>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </header>
@@ -826,13 +914,12 @@ function Workstation() {
           <Panel
             title={t("Master gain", "Gesamtpegel")}
             right={
-              <span
-                onDoubleClick={() => !rendering && setGainDb(0)}
-                title={t("Double-click to reset to 0 dB", "Doppelklick setzt auf 0 dB zurück")}
-                className="cursor-pointer select-none font-mono text-[10px]"
-              >
-                {gainDb.toFixed(1)} dB
-              </span>
+              <GainReadout
+                value={gainDb}
+                disabled={rendering}
+                onChange={setGainDb}
+                title={t("Click to type a value · double-click resets to 0 dB", "Klicken für Zahleneingabe · Doppelklick setzt auf 0 dB zurück")}
+              />
             }
           >
             <input
