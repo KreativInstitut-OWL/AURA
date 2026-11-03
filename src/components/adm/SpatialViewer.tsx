@@ -306,11 +306,9 @@ export function SpatialViewer({
         className="absolute bottom-2 right-2 inline-flex size-7 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M20.341 6.484A10 10 0 0 1 10.266 21.85" />
-          <path d="M3.659 17.516A10 10 0 0 1 13.74 2.152" />
-          <circle cx="12" cy="12" r="3" />
-          <circle cx="19" cy="5" r="2" />
-          <circle cx="5" cy="19" r="2" />
+          <path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2" />
+          <path d="m15.194 13.707 3.814 1.86-1.86 3.814" />
+          <path d="M19 15.57c-1.804.885-4.274 1.43-7 1.43-5.523 0-10-2.239-10-5s4.477-5 10-5c4.838 0 8.873 1.718 9.8 4" />
           {!autoRotate && <path d="M3 3l18 18" />}
         </svg>
       </button>
