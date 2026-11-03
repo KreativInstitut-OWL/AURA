@@ -6,6 +6,7 @@ import {
   Download,
   FileAudio,
   Info,
+  ArrowUpRight,
   Layers,
   Play,
   Radio,
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import kioLight from "@/assets/kio_logo_light.webp.asset.json";
+import kioDark from "@/assets/kio_logo_dark.png.asset.json";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PrivacyDialog, usePrivacyDialog } from "@/components/PrivacyDialog";
 import { useLang } from "@/lib/i18n";
@@ -1061,6 +1064,20 @@ function Workstation() {
           )}
         </p>
       </footer>
+      <div className="flex items-center gap-5 border-t border-border px-5 py-5">
+        <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL">
+          <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto dark:hidden" />
+          <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto dark:block" />
+        </a>
+        <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <a href="https://kreativ.institute/de/impressum" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+            Impressum <ArrowUpRight className="size-3" />
+          </a>
+          <a href="https://kreativ.institute/de/datenschutz" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+            Datenschutz <ArrowUpRight className="size-3" />
+          </a>
+        </div>
+      </div>
       <PrivacyDialog open={privacy.open} onOpenChange={privacy.setOpen} />
     </div>
   );
