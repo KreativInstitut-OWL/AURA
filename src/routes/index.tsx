@@ -26,6 +26,9 @@ import { MetadataInspector } from "@/components/adm/MetadataInspector";
 import { Meters } from "@/components/adm/Meters";
 import { SpatialViewer } from "@/components/adm/SpatialViewer";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription } from "@/components/ui/alert-dialog";
+import { CLIPPING_HEADROOM_DB, suggestedMasterGain } from "@/engine/clipping";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { analyseAdm, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
@@ -243,6 +246,8 @@ function Workstation() {
   const [gainDb, setGainDb] = useState(0);
 
   const [rendering, setRendering] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [pausedClip, setPausedClip] = useState<{ peakDb: number; channel: number; suggestedGain: number } | null>(null);
   const [framesDone, setFramesDone] = useState(0);
   const [peaks, setPeaks] = useState<Float32Array | null>(null);
   const [bytesWritten, setBytesWritten] = useState(0);
@@ -368,6 +373,7 @@ function Workstation() {
 
   const loadFile = useCallback(
     async (f: File) => {
+      if (workerRef.current) return;
       setError(null);
       setAnalysis(null);
       setContainer(null);
@@ -413,6 +419,8 @@ function Workstation() {
     setBytesWritten(0);
 
     setClip(null);
+    setPausedClip(null);
+    setStopping(false);
 
     const baseName = file.name.replace(/\.[^.]+$/, "");
     const hasLfe = analysis.sources.some((s) => s.isLFE);
@@ -461,12 +469,29 @@ function Workstation() {
     worker.onerror = (ev) => {
       setError(`Render worker failed: ${ev.message || "unknown error"}`);
       setRendering(false);
+      setPausedClip(null);
+      setStopping(false);
+      worker.terminate();
+      workerRef.current = null;
       levelsRef.current.live = null;
     };
 
     worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
       const msg = ev.data;
-      if (msg.type === "progress") {
+      if (msg.type === "clipping") {
+        const peakDb = 20 * Math.log10(msg.maxPeak);
+        setPausedClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggestedMasterGain(gainDb, peakDb) });
+        setFramesDone(msg.framesDone);
+        setBytesWritten(msg.bytesWritten);
+        setElapsed(msg.elapsedMs);
+      } else if (msg.type === "cancelled") {
+        setRendering(false);
+        setStopping(false);
+        setPausedClip(null);
+        levelsRef.current.live = null;
+        worker.terminate();
+        workerRef.current = null;
+      } else if (msg.type === "progress") {
         setFramesDone(msg.framesDone);
         setPeaks(msg.peaks);
         setBytesWritten(msg.bytesWritten);
@@ -491,8 +516,7 @@ function Workstation() {
         }
         // Peak is measured in 32-bit float before 24-bit quantisation clamps it.
         const peakDb = msg.maxPeak > 0 ? 20 * Math.log10(msg.maxPeak) : -Infinity;
-        const suggested =
-          peakDb > 0 ? Math.max(-24, Math.floor((gainDb - peakDb - 0.2) * 2) / 2) : gainDb;
+        const suggested = suggestedMasterGain(gainDb, peakDb);
         setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
 
         const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
@@ -512,6 +536,9 @@ function Workstation() {
       } else {
         setError(msg.message);
         setRendering(false);
+        setStopping(false);
+        setPausedClip(null);
+        levelsRef.current.live = null;
         worker.terminate();
         workerRef.current = null;
       }
@@ -538,10 +565,9 @@ function Workstation() {
 
 
   const stopRender = () => {
-    workerRef.current?.terminate();
-    workerRef.current = null;
-    levelsRef.current.live = null;
-    setRendering(false);
+    if (!workerRef.current) return;
+    setStopping(true);
+    workerRef.current.postMessage({ type: "cancel" });
   };
 
 
@@ -962,12 +988,14 @@ function Workstation() {
                 <Play className="size-4" /> {t(`Render ${outChannels}-ch AmbiX`, `${outChannels}-Kanal-AmbiX rendern`)}
               </button>
             ) : (
-              <button
+              <Button
                 onClick={stopRender}
+                disabled={stopping}
+                variant="destructive"
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
               >
-                <Square className="size-4" /> {t("Stop", "Stopp")}
-              </button>
+                <Square className="size-4" /> {stopping ? t("Stopping…", "Wird gestoppt…") : t("Stop", "Stopp")}
+              </Button>
             )}
 
             <div className="mt-3">
@@ -981,6 +1009,8 @@ function Workstation() {
                 <span>ETA {fmtTime(eta)}</span>
               </div>
             </div>
+
+            {pausedClip && <p role="status" className="mt-2 text-xs text-destructive">{t("Paused — clipping detected", "Pausiert — Übersteuerung erkannt")}</p>}
 
             {result && (
               <div className="mt-3 rounded-lg border border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 p-3 text-xs">
@@ -1022,6 +1052,10 @@ function Workstation() {
                     `Clipping detected: peak reached +${clip.peakDb.toFixed(1)} dBFS on ACN ${clip.channel}. The 24-bit output was hard-clipped (no limiter applied).`,
                     `Übersteuerung erkannt: Spitzenwert +${clip.peakDb.toFixed(1)} dBFS auf ACN ${clip.channel}. Die 24-Bit-Ausgabe wurde hart begrenzt (kein Limiter aktiv).`,
                   )}
+                  <p className="mt-2 text-muted-foreground">{t(
+                    `Suggested gain includes ${CLIPPING_HEADROOM_DB} dB extra headroom (subject to the −24 dB gain limit).`,
+                    `Der vorgeschlagene Gain enthält ${CLIPPING_HEADROOM_DB} dB zusätzlichen Headroom (bis zur Gain-Grenze von −24 dB).`,
+                  )}</p>
                   <button
                     onClick={() => {
                       setGainDb(clip.suggestedGain);
@@ -1048,6 +1082,35 @@ function Workstation() {
 
         </div>
       </div>
+
+      <AlertDialog open={pausedClip !== null}>
+        <AlertDialogContent className="max-w-[calc(100%-2rem)] sm:max-w-lg">
+          <AlertDialogTitle className="flex items-center gap-2"><TriangleAlert className="size-5 text-destructive" />{t("Clipping detected — render paused", "Übersteuerung erkannt — Rendern pausiert")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t(
+              `Sample peak so far: +${pausedClip?.peakDb.toFixed(1)} dBFS on ACN ${pausedClip?.channel}. No limiter is active.`,
+              `Bisheriger Sample-Peak: +${pausedClip?.peakDb.toFixed(1)} dBFS auf ACN ${pausedClip?.channel}. Kein Limiter aktiv.`,
+            )}
+          </AlertDialogDescription>
+          <p className="text-sm text-muted-foreground">{t(
+            `The suggested Master Gain includes ${CLIPPING_HEADROOM_DB} dB extra headroom. Later peaks may still be higher; a new render will pause again if needed.`,
+            `Der vorgeschlagene Master Gain enthält ${CLIPPING_HEADROOM_DB} dB zusätzlichen Headroom. Spätere Spitzen können höher sein; ein neuer Render pausiert bei Bedarf erneut.`,
+          )}</p>
+          {pausedClip && gainDb - pausedClip.peakDb - CLIPPING_HEADROOM_DB < -24 && <p className="text-sm text-destructive">{t("The −24 dB gain limit cannot provide the full suggested headroom. Reduce the source level before rendering again.", "Die Gain-Grenze von −24 dB reicht für den vorgeschlagenen Headroom nicht aus. Reduziere den Quellpegel vor dem erneuten Rendern.")}</p>}
+          <div className="flex flex-col gap-2">
+            <Button disabled={stopping} className="h-auto whitespace-normal py-2" onClick={() => {
+              if (!pausedClip) return;
+              setGainDb(pausedClip.suggestedGain);
+              stopRender();
+            }}><Square />{stopping ? t("Stopping…", "Wird gestoppt…") : t(`Stop & set Master Gain to ${pausedClip?.suggestedGain.toFixed(1)} dB`, `Stoppen & Master Gain auf ${pausedClip?.suggestedGain.toFixed(1)} dB setzen`)}</Button>
+            <Button variant="outline" disabled={stopping} className="h-auto whitespace-normal py-2" onClick={() => {
+              workerRef.current?.postMessage({ type: "continue" });
+              setPausedClip(null);
+            }}>{t("Continue with hard clipping (no limiter)", "Mit hartem Clipping fortfahren (kein Limiter)")}</Button>
+            <Button variant="ghost" disabled={stopping} onClick={stopRender}>{t("Stop without changing gain", "Stoppen ohne Gain-Änderung")}</Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <footer className="grid grid-cols-1 items-center gap-5 border-t border-border px-5 py-6 text-[11px] text-muted-foreground lg:grid-cols-[1fr_minmax(0,48rem)_1fr] lg:gap-8">
         <div className="flex shrink-0 items-center justify-center gap-5 lg:justify-start">
