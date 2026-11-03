@@ -6,6 +6,7 @@ import {
   Download,
   FileAudio,
   Info,
+  ArrowUpRight,
   Layers,
   Play,
   Radio,
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import kioLight from "@/assets/kio_logo_light.webp.asset.json";
+import kioDark from "@/assets/kio_logo_dark.png.asset.json";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PrivacyDialog, usePrivacyDialog } from "@/components/PrivacyDialog";
 import { useLang } from "@/lib/i18n";
@@ -600,39 +603,43 @@ function Workstation() {
               ))}
             </div>
             <div className="inline-flex rounded-full border border-border p-0.5">
-              {(["dolby", "itu"] as BedProfile[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setProfile(p)}
-                  disabled={rendering}
-                  className={`rounded-full px-3 py-1 text-[11px] transition-colors disabled:opacity-40 ${
-                    profile === p
-                      ? "bg-foreground font-semibold text-background"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {p === "dolby" ? t("Dolby mode", "Dolby-Modus") : t("ITU mode", "ITU-Modus")}
-                </button>
-              ))}
+              {(["dolby", "itu"] as BedProfile[]).map((p) => {
+                const active = profile === p;
+                const name = p === "dolby" ? t("Dolby mode", "Dolby-Modus") : t("ITU mode", "ITU-Modus");
+                return (
+                  <div
+                    key={p}
+                    className={`inline-flex items-center rounded-full transition-colors ${
+                      active ? "bg-foreground text-background" : "text-muted-foreground"
+                    } ${rendering ? "opacity-40" : ""}`}
+                  >
+                    <button
+                      onClick={() => setProfile(p)}
+                      disabled={rendering}
+                      className={`rounded-full py-1 pl-3 pr-1 text-[11px] ${active ? "font-semibold" : "hover:text-foreground"}`}
+                    >
+                      {name}
+                    </button>
+                    <Popover>
+                      <PopoverTrigger
+                        aria-label={t(`About ${name}`, `Über ${name}`)}
+                        className={`mr-1 inline-flex size-4 items-center justify-center rounded-full ${
+                          active ? "opacity-80 hover:opacity-100" : "hover:text-foreground"
+                        }`}
+                      >
+                        <Info className="size-3" />
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="v2-theme w-64 rounded-xl p-3 text-xs leading-relaxed">
+                        <span className="font-semibold">{name}: </span>
+                        {p === "dolby"
+                          ? t("Uses Dolby coordinates and places objects accordingly.", "Verwendet Dolby-Koordinaten und platziert Objekte entsprechend.")
+                          : t("Uses pure geometry and spherical projection of objects.", "Verwendet reine Geometrie und sphärische Projektion von Objekten.")}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                );
+              })}
             </div>
-            <Popover>
-              <PopoverTrigger
-                aria-label={t("About the modes", "Über die Modi")}
-                className="inline-flex size-6 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <Info className="size-3.5" />
-              </PopoverTrigger>
-              <PopoverContent align="end" className="v2-theme w-72 space-y-2 rounded-xl p-3 text-xs leading-relaxed">
-                <p>
-                  <span className="font-semibold">{t("Dolby mode", "Dolby-Modus")}: </span>
-                  {t("Uses Dolby coordinates and places objects accordingly.", "Verwendet Dolby-Koordinaten und platziert Objekte entsprechend.")}
-                </p>
-                <p>
-                  <span className="font-semibold">{t("ITU mode", "ITU-Modus")}: </span>
-                  {t("Uses pure geometry and spherical projection of objects.", "Verwendet reine Geometrie und sphärische Projektion von Objekten.")}
-                </p>
-              </PopoverContent>
-            </Popover>
           </div>
         </div>
       </header>
@@ -1057,6 +1064,20 @@ function Workstation() {
           )}
         </p>
       </footer>
+      <div className="flex items-center gap-5 border-t border-border px-5 py-5">
+        <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL">
+          <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto dark:hidden" />
+          <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto dark:block" />
+        </a>
+        <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <a href="https://kreativ.institute/de/impressum" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+            Impressum <ArrowUpRight className="size-3" />
+          </a>
+          <a href="https://kreativ.institute/de/datenschutz" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
+            Datenschutz <ArrowUpRight className="size-3" />
+          </a>
+        </div>
+      </div>
       <PrivacyDialog open={privacy.open} onOpenChange={privacy.setOpen} />
     </div>
   );
