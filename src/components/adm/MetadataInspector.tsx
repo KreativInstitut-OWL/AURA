@@ -242,19 +242,24 @@ export function MetadataInspector({
                               {statusLabel(d, t)}
                             </Tag>
                           </td>
-                          <td
-                            title={d.detail}
-                            className="max-w-[220px] truncate p-2 text-muted-foreground"
-                          >
-                            {d.detail}
+                          <td className="max-w-[220px] p-2 text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <span className="min-w-0 truncate" title={d.detail}>{d.detail}</span>
+                              <ChevronDown
+                                className={`size-3 shrink-0 transition-transform ${expanded === d.trackIndex ? "rotate-180" : ""}`}
+                              />
+                            </div>
                           </td>
                         </tr>
                         {expanded === d.trackIndex && (
                           <tr className="border-t border-border bg-secondary/30">
                             <td colSpan={8} className="p-2">
+                              {d.detail && (
+                                <p className="mb-2 whitespace-normal break-words text-foreground">{d.detail}</p>
+                              )}
                               <ol className="space-y-1">
                                 {d.steps.map((step, i) => (
-                                  <li key={i} className="flex items-center gap-2">
+                                  <li key={i} className="flex flex-wrap items-center gap-2 break-all">
                                     {step.ok ? (
                                       <CircleCheck className="size-3 text-primary" />
                                     ) : (

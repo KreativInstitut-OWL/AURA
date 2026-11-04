@@ -399,6 +399,48 @@ function Workstation() {
     [profile],
   );
 
+  // Full-window drop target: files dropped anywhere load as the source.
+  const [windowDrag, setWindowDrag] = useState(false);
+  useEffect(() => {
+    let depth = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files");
+    const enter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      setWindowDrag(true);
+    };
+    const over = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = rendering ? "none" : "copy";
+    };
+    const leave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setWindowDrag(false);
+    };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setWindowDrag(false);
+      setDragging(false);
+      const f = e.dataTransfer?.files[0];
+      if (f && !rendering) void loadFile(f);
+    };
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragover", over);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("drop", drop);
+    };
+  }, [loadFile, rendering]);
+
   useEffect(() => {
     if (!container) return;
     try {
@@ -592,6 +634,19 @@ function Workstation() {
 
   return (
     <div className="v2-theme min-h-screen">
+      {windowDrag && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-6 backdrop-blur-sm">
+          <div className="rounded-2xl border-2 border-dashed border-[var(--v2-valid)] bg-card px-10 py-8 text-center shadow-lg">
+            <FileAudio className="mx-auto mb-3 size-8 text-[var(--v2-valid)]" />
+            <p className="text-base font-medium">
+              {rendering
+                ? t("Rendering in progress — wait until it finishes", "Rendering läuft — bitte warten, bis es fertig ist")
+                : t("Drop to load as source", "Ablegen, um als Quelle zu laden")}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">BWF · RF64 · BW64 · WAV</p>
+          </div>
+        </div>
+      )}
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
         <div className="flex flex-wrap items-center gap-3 px-5 py-3">
@@ -687,12 +742,6 @@ function Workstation() {
                 setDragging(true);
               }}
               onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                const f = e.dataTransfer.files[0];
-                if (f) void loadFile(f);
-              }}
               className={`rounded-lg border-2 border-dashed p-5 text-center transition-colors ${
                 dragging ? "border-[var(--v2-valid)] bg-[var(--v2-valid)]/5" : "border-border"
               }`}
