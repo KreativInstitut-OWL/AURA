@@ -1112,11 +1112,11 @@ function Workstation() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <footer className="grid grid-cols-1 items-center gap-5 border-t border-border px-5 py-6 text-[11px] text-muted-foreground lg:grid-cols-[1fr_minmax(0,48rem)_1fr] lg:gap-8">
-        <div className="flex shrink-0 items-center justify-center gap-5 lg:justify-start">
-          <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL">
-            <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto dark:hidden" />
-            <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto dark:block" />
+      <footer className="grid grid-cols-1 items-center gap-5 border-t border-border px-5 py-6 text-[11px] text-muted-foreground xl:grid-cols-[1fr_minmax(0,48rem)_1fr] xl:gap-8">
+        <div className="flex shrink-0 items-center justify-center gap-5 xl:justify-start">
+          <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL" className="shrink-0">
+            <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto max-w-none shrink-0 dark:hidden" />
+            <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto max-w-none shrink-0 dark:block" />
           </a>
           <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide">
             <a href={t("https://kreativ.institute/en/impressum", "https://kreativ.institute/de/impressum")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
@@ -1142,6 +1142,7 @@ function Workstation() {
             )}
           </p>
         </div>
+        <div aria-hidden="true" className="hidden xl:block" />
       </footer>
       <PrivacyDialog open={privacy.open} onOpenChange={privacy.setOpen} />
     </div>
