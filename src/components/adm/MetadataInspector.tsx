@@ -253,7 +253,8 @@ export function MetadataInspector({
                         </tr>
                         {expanded === d.trackIndex && (
                           <tr className="border-t border-border bg-secondary/30">
-                            <td colSpan={8} className="p-2">
+                            <td colSpan={7} aria-hidden="true" />
+                            <td className="max-w-0 p-2 pr-3">
                               {d.detail && (
                                 <p className="mb-2 whitespace-normal break-words text-foreground">{d.detail}</p>
                               )}
