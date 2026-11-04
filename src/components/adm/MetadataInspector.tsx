@@ -259,7 +259,7 @@ export function MetadataInspector({
                               )}
                               <ol className="space-y-1">
                                 {d.steps.map((step, i) => (
-                                  <li key={i} className="flex items-center gap-2">
+                                  <li key={i} className="flex flex-wrap items-center gap-2 break-all">
                                     {step.ok ? (
                                       <CircleCheck className="size-3 text-primary" />
                                     ) : (
