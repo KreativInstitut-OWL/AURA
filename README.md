@@ -1,6 +1,8 @@
-# Atmos Ambisonics Direct
+# AURA — ADM Universal Renderer into Ambisonics
 
-Prompt: ADM-to-Ambisonics Renderer (Web App)
+> **Goal:** Immersive audio engineers get their Atmos and ADM mixes as faithful Ambisonics masters.
+
+Original build prompt: ADM-to-Ambisonics Renderer (Web App)
 
 Goal:
 Render Dolby Atmos ADM content directly into Ambisonics with object-level spatial precision. No intermediate loudspeaker-gain stage: every source (fixed 7.1.2 bed or time-varying object) gets Ambisonics coefficients computed directly from its position into Higher-Order Ambisonics (order 3/5/7 selectable: 16/36/64 channel output) using ACN channel ordering and SN3D normalization. Avoid the phantom-source blur and comb filtering caused by routing through virtual loudspeakers.
