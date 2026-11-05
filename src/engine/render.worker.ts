@@ -144,9 +144,13 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   /** Peak per order tier: ACN 0–15 (3OA), 16–35 (adds 5OA), 36–63 (adds 7OA). */
   const groupPeaks = new Float32Array(3);
 
-  while (frame < totalFrames) {
+  // Peak estimates encode only the requested windows; renders cover the whole file.
+  const ranges: [number, number][] = scan && req.windows ? req.windows : [[0, totalFrames]];
+  for (const [rangeStart, rangeEnd] of ranges) {
+  frame = rangeStart;
+  while (frame < rangeEnd) {
     if (gate.cancelled) return;
-    const frames = Math.min(FRAME_BLOCK, totalFrames - frame);
+    const frames = Math.min(FRAME_BLOCK, rangeEnd - frame);
     const byteStart = container.dataOffset + frame * container.blockAlign;
     const byteEnd = byteStart + frames * container.blockAlign;
     const raw = new Uint8Array(await file.slice(byteStart, byteEnd).arrayBuffer());
@@ -285,6 +289,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
         sourcePeaks: new Float32Array(sourcePeaks),
       });
     }
+  }
   }
 
   if (gate.cancelled) return;
