@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import kioLight from "@/assets/kio_logo_light.png";
+import kioLight from "@/assets/kio_logo_light.webp";
 import kioDark from "@/assets/kio_logo_dark.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PrivacyDialog, usePrivacyDialog } from "@/components/PrivacyDialog";
