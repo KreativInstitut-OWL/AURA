@@ -1054,52 +1054,8 @@ function Workstation() {
             </Panel>
           )}
 
-          <div className="space-y-2">
-            {preScan ? (
-              <div className="flex items-center gap-2">
-                <Progress value={preScan.progress * 100} className="h-1.5 flex-1" />
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {t("Analysing…", "Analysiere…")} {Math.round(preScan.progress * 100)}%
-                </span>
-                <Button size="sm" variant="ghost" onClick={cancelPeakScan}>{t("Cancel", "Abbrechen")}</Button>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full rounded-full"
-                disabled={!analysis || !file || rendering}
-                onClick={startPeakScan}
-              >
-                {t("Pre-calculate max peak", "Maximalen Peak vorberechnen")}
-              </Button>
-            )}
-            {predictedPeakDb !== null && !preScan && (
-              <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                <span className={`font-mono ${predictedPeakDb > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                  {t("Max peak", "Max. Peak")}: {Number.isFinite(predictedPeakDb) ? `${predictedPeakDb > 0 ? "+" : ""}${predictedPeakDb.toFixed(1)} dBFS` : "−∞ dBFS"}
-                  {" · "}
-                  {predictedPeakDb > 0 ? t("exceeds full scale", "übersteuert") : t("headroom OK", "Headroom OK")}
-                </span>
-                {predictedPeakDb > 0 && (
-                  <Button
-                    size="sm"
-                    className="h-7 rounded-full px-3 text-[11px]"
-                    disabled={rendering}
-                    onClick={() => setGainDb(suggestedMasterGain(gainDb, predictedPeakDb))}
-                  >
-                    {t(
-                      `Set Master Gain to ${suggestedMasterGain(gainDb, predictedPeakDb).toFixed(1)} dB`,
-                      `Master Gain auf ${suggestedMasterGain(gainDb, predictedPeakDb).toFixed(1)} dB setzen`,
-                    )}
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-
           <Panel
-            title={t("Master gain", "Gesamtpegel")}
+            title={t("Master gain", "Master Gain")}
             right={
               <GainReadout
                 value={gainDb}
@@ -1121,6 +1077,49 @@ function Workstation() {
               title={t("Double-click to reset to 0 dB", "Doppelklick setzt auf 0 dB zurück")}
               className="h-1 w-full cursor-pointer appearance-none rounded-full bg-secondary accent-[var(--v2-valid)]"
             />
+            <div className="mt-3 space-y-2 border-t border-border/40 pt-3">
+              {preScan ? (
+                <div className="flex items-center gap-2">
+                  <Progress value={preScan.progress * 100} className="h-1.5 flex-1" />
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {t("Analysing…", "Analysiere…")} {Math.round(preScan.progress * 100)}%
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={cancelPeakScan}>{t("Cancel", "Abbrechen")}</Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full rounded-full"
+                  disabled={!analysis || !file || rendering}
+                  onClick={startPeakScan}
+                >
+                  {t("Pre-calculate max peak", "Maximalen Peak vorberechnen")}
+                </Button>
+              )}
+              {predictedPeakDb !== null && !preScan && (
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className={`font-mono ${predictedPeakDb > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {t("Max peak", "Max. Peak")}: {Number.isFinite(predictedPeakDb) ? `${predictedPeakDb > 0 ? "+" : ""}${predictedPeakDb.toFixed(1)} dBFS` : "−∞ dBFS"}
+                    {" · "}
+                    {predictedPeakDb > 0 ? t("exceeds full scale", "übersteuert") : t("headroom OK", "Headroom OK")}
+                  </span>
+                  {predictedPeakDb > 0 && (
+                    <Button
+                      size="sm"
+                      className="h-7 rounded-full px-3 text-[11px]"
+                      disabled={rendering}
+                      onClick={() => setGainDb(suggestedMasterGain(gainDb, predictedPeakDb))}
+                    >
+                      {t(
+                        `Set Master Gain to ${suggestedMasterGain(gainDb, predictedPeakDb).toFixed(1)} dB`,
+                        `Master Gain auf ${suggestedMasterGain(gainDb, predictedPeakDb).toFixed(1)} dB setzen`,
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </Panel>
 
 
