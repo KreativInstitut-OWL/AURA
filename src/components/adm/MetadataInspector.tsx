@@ -78,6 +78,30 @@ function lfeEl(routing: LfeRouting, el: number): string {
   return "—";
 }
 
+/** LFE detail follows the active routing instead of the static analysis text. */
+function lfeDetail(
+  routing: LfeRouting,
+  s: { azimuth: number; elevation: number },
+  t: (en: string, de: string) => string,
+): string {
+  if (routing === "omni")
+    return t(
+      "Omnidirectional — 120 Hz low-pass injected into ACN 0 (W); no directional encoding",
+      "Ungerichtet — 120-Hz-Tiefpass nur in ACN 0 (W) eingespeist; keine Richtungskodierung",
+    );
+  if (routing === "down")
+    return t(
+      "Lower hemisphere — 120 Hz low-pass encoded as cardioid (W − Z)",
+      "Untere Hemisphäre — 120-Hz-Tiefpass als Niere kodiert (W − Z)",
+    );
+  if (routing === "off") return t("Bypassed — excluded from render", "Deaktiviert — wird nicht gerendert");
+  const pos = `${rad2deg(s.azimuth).toFixed(1)}° / ${rad2deg(s.elevation).toFixed(1)}°`;
+  return t(
+    `Speaker position — 120 Hz low-pass encoded at ${pos}`,
+    `Lautsprecherposition — 120-Hz-Tiefpass kodiert bei ${pos}`,
+  );
+}
+
 export function MetadataInspector({
   analysis,
   lfeRouting = "omni",
@@ -172,8 +196,8 @@ export function MetadataInspector({
                     <th className="p-2 text-left">{t("Trk", "Spur")}</th>
                     <th className="p-2 text-left">Name</th>
                     <th className="p-2 text-left">{t("Type", "Typ")}</th>
-                    <th className="p-2 text-right">Az</th>
-                    <th className="p-2 text-right">El</th>
+                    <th className="p-2 text-right">{t("Azimuth", "Azimut")}</th>
+                    <th className="p-2 text-right">Elevation</th>
                     <th className="p-2 text-left">{t("Motion", "Bewegung")}</th>
                     <th className="p-2 text-left">Status</th>
                     <th className="p-2 text-left">{t("Detail", "Details")}</th>
@@ -182,6 +206,7 @@ export function MetadataInspector({
                 <tbody>
                   {diagnostics.map((d) => {
                     const s = sourceByTrack.get(d.trackIndex);
+                    const detail = s?.isLFE ? lfeDetail(lfeRouting, s, t) : d.detail;
                     return (
                       <Fragment key={d.trackIndex}>
                         <tr
@@ -244,7 +269,7 @@ export function MetadataInspector({
                           </td>
                           <td className="max-w-[220px] p-2 text-muted-foreground">
                             <div className="flex items-center gap-1">
-                              <span className="min-w-0 truncate" title={d.detail}>{d.detail}</span>
+                              <span className="min-w-0 truncate" title={detail}>{detail}</span>
                               <ChevronDown
                                 className={`size-3 shrink-0 transition-transform ${expanded === d.trackIndex ? "rotate-180" : ""}`}
                               />
@@ -255,8 +280,8 @@ export function MetadataInspector({
                           <tr className="border-t border-border bg-secondary/30">
                             <td colSpan={7} aria-hidden="true" />
                             <td className="max-w-0 p-2 pr-3">
-                              {d.detail && (
-                                <p className="mb-2 whitespace-normal break-words text-foreground">{d.detail}</p>
+                              {detail && (
+                                <p className="mb-2 whitespace-normal break-words text-foreground">{detail}</p>
                               )}
                               <ol className="space-y-1">
                                 {d.steps.map((step, i) => (
