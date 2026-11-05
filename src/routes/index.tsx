@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import kioLight from "@/assets/kio_logo_light.webp.asset.json";
-import kioDark from "@/assets/kio_logo_dark.png.asset.json";
+import kioLight from "@/assets/kio_logo_light.png";
+import kioDark from "@/assets/kio_logo_dark.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PrivacyDialog, usePrivacyDialog } from "@/components/PrivacyDialog";
 import { useLang } from "@/lib/i18n";
@@ -1309,8 +1309,8 @@ function Workstation() {
       <footer className="grid grid-cols-1 items-center gap-5 border-t border-border px-5 py-6 text-[11px] text-muted-foreground xl:grid-cols-[1fr_minmax(0,48rem)_1fr] xl:gap-8">
         <div className="flex shrink-0 items-center justify-center gap-5 xl:justify-start">
           <a href="https://kreativ.institute" target="_blank" rel="noreferrer" aria-label="KreativInstitut.OWL" className="shrink-0">
-            <img src={kioLight.url} alt="KreativInstitut.OWL" className="h-9 w-auto max-w-none shrink-0 dark:hidden" />
-            <img src={kioDark.url} alt="KreativInstitut.OWL" className="hidden h-9 w-auto max-w-none shrink-0 dark:block" />
+            <img src={kioLight} alt="KreativInstitut.OWL" className="h-9 w-auto max-w-none shrink-0 dark:hidden" />
+            <img src={kioDark} alt="KreativInstitut.OWL" className="hidden h-9 w-auto max-w-none shrink-0 dark:block" />
           </a>
           <div className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide">
             <a href={t("https://kreativ.institute/en/impressum", "https://kreativ.institute/de/impressum")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
