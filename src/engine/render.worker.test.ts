@@ -80,12 +80,12 @@ test("one 7th-order scan reports a peak per order tier (ACN 0–15, 16–35, 36�
   const scope = (globalThis as unknown as { self: { onmessage: (e: MessageEvent<RenderWorkerMessage>) => void; postMessage: (m: WorkerResponse) => void } }).self;
   scope.postMessage = (m: WorkerResponse) => messages.push(m);
   const samples = new Float32Array(4096).fill(0.5);
-  scope.onmessage({ data: {
+  scope.onmessage({ data: ({
     type: "render", file: new File([samples.buffer], "tiers.wav"), handle: null, scanOnly: true,
     sources: [{ channelIndex: 0, kind: "bed", name: "C", uid: "t", isLFE: false, azimuth: 0, elevation: 0, gain: 1, points: [] }],
     container: { dataOffset: 0, frameCount: 4096, blockAlign: 4, bitsPerSample: 32, isFloat: true, channels: 1, sampleRate: 48000 },
     config: { order: 7, lfeRouting: "off", lfeGain: "unity", masterGain: 1 },
-  } as WorkerRequest });
+  } as WorkerRequest) } as MessageEvent<RenderWorkerMessage>);
   for (let n = 0; n < 200 && !messages.some((m) => m.type === "done"); n++) await new Promise((r) => setTimeout(r, 5));
   const done = messages.find((m) => m.type === "done");
   if (done?.type !== "done") throw new Error("scan did not finish");
