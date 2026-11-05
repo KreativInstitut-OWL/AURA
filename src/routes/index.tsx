@@ -35,6 +35,7 @@ import { parseContainer } from "@/engine/container";
 import { channelCount } from "@/engine/sh";
 
 import { ENVELOPE_BIN_SEC } from "@/engine/types";
+import { peakWindows } from "@/engine/peak-windows";
 import type {
   AnalysisResult,
   BedProfile,
@@ -469,6 +470,19 @@ function Workstation() {
 
   const startPeakScan = useCallback(() => {
     if (!analysis || !file || scanWorkerRef.current) return;
+    const lv = levelsRef.current;
+    if (!lv.envelope) return;
+    // Encode a 500 ms window (±250 ms) around each used channel's loudest moment.
+    const used = new Set(
+      analysis.sources
+        .filter((s) => !(s.isLFE && lfeRouting === "off") && s.channelIndex >= 0)
+        .map((s) => s.channelIndex),
+    );
+    const windows = peakWindows(
+      lv.envelope, lv.bins, lv.binSamples, used,
+      Math.round(analysis.container.format.sampleRate * 0.25),
+      analysis.container.frameCount,
+    );
     const worker = new Worker(new URL("../engine/render.worker.ts", import.meta.url), { type: "module" });
     scanWorkerRef.current = worker;
     setPreScan({ progress: 0 });
@@ -505,6 +519,7 @@ function Workstation() {
       config: { order: 7, lfeRouting, lfeGain, masterGain: 1 },
       handle: null,
       scanOnly: true,
+      windows,
     };
     worker.postMessage(req);
   }, [analysis, file, lfeRouting, lfeGain]);
