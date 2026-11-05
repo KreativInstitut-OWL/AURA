@@ -66,7 +66,7 @@ test("peak scan reports the true peak without pausing, writing, or producing a f
     sources: [{ channelIndex: 0, kind: "bed", name: "C", uid: "s", isLFE: false, azimuth: 0, elevation: 0, gain: 1, points: [] }],
     container: { dataOffset: 0, frameCount: 4096, blockAlign: 4, bitsPerSample: 32, isFloat: true, channels: 1, sampleRate: 48000 },
     config: { order: 3, lfeRouting: "off", lfeGain: "unity", masterGain: 1 },
-  } } as MessageEvent<RenderWorkerMessage>);
+  } } as unknown as MessageEvent<RenderWorkerMessage>);
   for (let n = 0; n < 200 && !messages.some((m) => m.type === "done"); n++) await new Promise((r) => setTimeout(r, 5));
   const done = messages.find((m) => m.type === "done");
   if (done?.type !== "done") throw new Error("scan did not finish");
