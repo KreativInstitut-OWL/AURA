@@ -244,6 +244,10 @@ function Workstation() {
   const [lfeGain, setLfeGain] = useState<LfeGain>("minus3");
 
   const [gainDb, setGainDb] = useState(0);
+  /** On-demand peak pre-scan, measured at 0 dB master gain (encoding is linear). */
+  const [preScan, setPreScan] = useState<{ progress: number } | null>(null);
+  const [basePeakDb, setBasePeakDb] = useState<number | null>(null);
+  const scanWorkerRef = useRef<Worker | null>(null);
 
   const [rendering, setRendering] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -452,6 +456,63 @@ function Workstation() {
 
 
 
+
+  // Any setting that changes the encoded signal invalidates a previous scan.
+  useEffect(() => {
+    setBasePeakDb(null);
+    scanWorkerRef.current?.terminate();
+    scanWorkerRef.current = null;
+    setPreScan(null);
+  }, [analysis, order, lfeRouting, lfeGain]);
+
+  const startPeakScan = useCallback(() => {
+    if (!analysis || !file || scanWorkerRef.current) return;
+    const worker = new Worker(new URL("../engine/render.worker.ts", import.meta.url), { type: "module" });
+    scanWorkerRef.current = worker;
+    setPreScan({ progress: 0 });
+    setBasePeakDb(null);
+    const finish = () => {
+      worker.terminate();
+      if (scanWorkerRef.current === worker) scanWorkerRef.current = null;
+      setPreScan(null);
+    };
+    worker.onerror = (ev) => { setError(`Peak scan failed: ${ev.message || "unknown error"}`); finish(); };
+    worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
+      const msg = ev.data;
+      if (msg.type === "progress") setPreScan({ progress: msg.framesDone / Math.max(1, msg.totalFrames) });
+      else if (msg.type === "done") {
+        setBasePeakDb(msg.maxPeak > 0 ? 20 * Math.log10(msg.maxPeak) : -Infinity);
+        finish();
+      } else if (msg.type === "error") { setError(msg.message); finish(); }
+      else if (msg.type === "cancelled") finish();
+    };
+    const req: WorkerRequest = {
+      type: "render",
+      file,
+      sources: analysis.sources,
+      container: {
+        dataOffset: analysis.container.dataOffset,
+        frameCount: analysis.container.frameCount,
+        blockAlign: analysis.container.format.blockAlign,
+        bitsPerSample: analysis.container.format.bitsPerSample,
+        isFloat: analysis.container.format.formatTag === 3,
+        channels: analysis.container.format.channels,
+        sampleRate: analysis.container.format.sampleRate,
+      },
+      config: { order, lfeRouting, lfeGain, masterGain: 1 },
+      handle: null,
+      scanOnly: true,
+    };
+    worker.postMessage(req);
+  }, [analysis, file, order, lfeRouting, lfeGain]);
+
+  const cancelPeakScan = () => {
+    scanWorkerRef.current?.terminate();
+    scanWorkerRef.current = null;
+    setPreScan(null);
+  };
+
+  const predictedPeakDb = basePeakDb === null ? null : basePeakDb + gainDb;
 
   const startRender = useCallback(async () => {
     if (!file || !analysis) return;
@@ -992,6 +1053,50 @@ function Workstation() {
               </div>
             </Panel>
           )}
+
+          <div className="space-y-2">
+            {preScan ? (
+              <div className="flex items-center gap-2">
+                <Progress value={preScan.progress * 100} className="h-1.5 flex-1" />
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {t("Analysing…", "Analysiere…")} {Math.round(preScan.progress * 100)}%
+                </span>
+                <Button size="sm" variant="ghost" onClick={cancelPeakScan}>{t("Cancel", "Abbrechen")}</Button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full rounded-full"
+                disabled={!analysis || !file || rendering}
+                onClick={startPeakScan}
+              >
+                {t("Pre-calculate max peak", "Maximalen Peak vorberechnen")}
+              </Button>
+            )}
+            {predictedPeakDb !== null && !preScan && (
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <span className={`font-mono ${predictedPeakDb > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                  {t("Max peak", "Max. Peak")}: {Number.isFinite(predictedPeakDb) ? `${predictedPeakDb > 0 ? "+" : ""}${predictedPeakDb.toFixed(1)} dBFS` : "−∞ dBFS"}
+                  {" · "}
+                  {predictedPeakDb > 0 ? t("exceeds full scale", "übersteuert") : t("headroom OK", "Headroom OK")}
+                </span>
+                {predictedPeakDb > 0 && (
+                  <Button
+                    size="sm"
+                    className="h-7 rounded-full px-3 text-[11px]"
+                    disabled={rendering}
+                    onClick={() => setGainDb(suggestedMasterGain(gainDb, predictedPeakDb))}
+                  >
+                    {t(
+                      `Set Master Gain to ${suggestedMasterGain(gainDb, predictedPeakDb).toFixed(1)} dB`,
+                      `Master Gain auf ${suggestedMasterGain(gainDb, predictedPeakDb).toFixed(1)} dB setzen`,
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
 
           <Panel
             title={t("Master gain", "Gesamtpegel")}
