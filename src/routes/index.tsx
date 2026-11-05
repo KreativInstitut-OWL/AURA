@@ -390,6 +390,8 @@ function Workstation() {
       setContainer(null);
       setResult(null);
       setChannelMap(null);
+      setGainDb(0);
+      setGroupPeaks(null);
       setFile(f);
       setAnalysing(true);
       try {
@@ -621,6 +623,11 @@ function Workstation() {
         setRendering(false);
         setStopping(false);
         setPausedClip(null);
+        // Stopped renders return to a clean idle state: no frozen meters or progress.
+        setFramesDone(0);
+        setBytesWritten(0);
+        setElapsed(0);
+        setPeaks(null);
         levelsRef.current.live = null;
         worker.terminate();
         workerRef.current = null;
@@ -1134,7 +1141,7 @@ function Workstation() {
               {predictedPeakDb !== null && !preScan && (
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   <span className={`font-mono ${predictedPeakDb > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                    {t("Estimated max peak", "Geschätzter max. Peak")}: {Number.isFinite(predictedPeakDb) ? `${predictedPeakDb > 0 ? "+" : ""}${predictedPeakDb.toFixed(1)} dBFS` : "−∞ dBFS"}
+                    {t(`Estimated max peak (${order}OA · ${outChannels} ch)`, `Geschätzter max. Peak (${order}OA · ${outChannels} Kanäle)`)}: {Number.isFinite(predictedPeakDb) ? `${predictedPeakDb > 0 ? "+" : ""}${predictedPeakDb.toFixed(1)} dBFS` : "−∞ dBFS"}
                     {" · "}
                     {predictedPeakDb > 0 ? t("exceeds full scale", "übersteuert") : t("headroom OK", "Headroom OK")}
                   </span>
