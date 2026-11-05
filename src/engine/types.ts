@@ -137,6 +137,8 @@ export type WorkerRequest = {
   handle: FileSystemFileHandle | null;
   /** Measure the output peak only: no writing, no clipping pause. */
   scanOnly?: boolean;
+  /** Scan only these [start, end) frame ranges (fast peak estimate). */
+  windows?: [number, number][];
 };
 
 export type WorkerResponse =
