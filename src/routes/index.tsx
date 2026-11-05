@@ -246,7 +246,8 @@ function Workstation() {
   const [gainDb, setGainDb] = useState(0);
   /** On-demand peak pre-scan, measured at 0 dB master gain (encoding is linear). */
   const [preScan, setPreScan] = useState<{ progress: number } | null>(null);
-  const [basePeakDb, setBasePeakDb] = useState<number | null>(null);
+  /** Scan result per order tier [ACN 0–15, 16–35, 36–63], linear, at 0 dB master gain. */
+  const [groupPeaks, setGroupPeaks] = useState<Float32Array | null>(null);
   const scanWorkerRef = useRef<Worker | null>(null);
 
   const [rendering, setRendering] = useState(false);
@@ -458,19 +459,20 @@ function Workstation() {
 
 
   // Any setting that changes the encoded signal invalidates a previous scan.
+  // The order does not: one 7th-order scan covers 3rd and 5th order too.
   useEffect(() => {
-    setBasePeakDb(null);
+    setGroupPeaks(null);
     scanWorkerRef.current?.terminate();
     scanWorkerRef.current = null;
     setPreScan(null);
-  }, [analysis, order, lfeRouting, lfeGain]);
+  }, [analysis, lfeRouting, lfeGain]);
 
   const startPeakScan = useCallback(() => {
     if (!analysis || !file || scanWorkerRef.current) return;
     const worker = new Worker(new URL("../engine/render.worker.ts", import.meta.url), { type: "module" });
     scanWorkerRef.current = worker;
     setPreScan({ progress: 0 });
-    setBasePeakDb(null);
+    setGroupPeaks(null);
     const finish = () => {
       worker.terminate();
       if (scanWorkerRef.current === worker) scanWorkerRef.current = null;
@@ -481,7 +483,7 @@ function Workstation() {
       const msg = ev.data;
       if (msg.type === "progress") setPreScan({ progress: msg.framesDone / Math.max(1, msg.totalFrames) });
       else if (msg.type === "done") {
-        setBasePeakDb(msg.maxPeak > 0 ? 20 * Math.log10(msg.maxPeak) : -Infinity);
+        setGroupPeaks(new Float32Array(msg.groupPeaks));
         finish();
       } else if (msg.type === "error") { setError(msg.message); finish(); }
       else if (msg.type === "cancelled") finish();
@@ -499,12 +501,13 @@ function Workstation() {
         channels: analysis.container.format.channels,
         sampleRate: analysis.container.format.sampleRate,
       },
-      config: { order, lfeRouting, lfeGain, masterGain: 1 },
+      // Scan once at 7th order; lower orders are the leading ACN channels.
+      config: { order: 7, lfeRouting, lfeGain, masterGain: 1 },
       handle: null,
       scanOnly: true,
     };
     worker.postMessage(req);
-  }, [analysis, file, order, lfeRouting, lfeGain]);
+  }, [analysis, file, lfeRouting, lfeGain]);
 
   const cancelPeakScan = () => {
     scanWorkerRef.current?.terminate();
@@ -512,7 +515,8 @@ function Workstation() {
     setPreScan(null);
   };
 
-  const predictedPeakDb = basePeakDb === null ? null : basePeakDb + gainDb;
+  const basePeak = groupPeaks === null ? null : Math.max(...Array.from(groupPeaks.subarray(0, order === 3 ? 1 : order === 5 ? 2 : 3)));
+  const predictedPeakDb = basePeak === null ? null : (basePeak > 0 ? 20 * Math.log10(basePeak) : -Infinity) + gainDb;
 
   const startRender = useCallback(async () => {
     if (!file || !analysis) return;
