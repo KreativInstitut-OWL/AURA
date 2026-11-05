@@ -21,7 +21,10 @@ async function scan(req: EnvelopeRequest) {
   const decode = makeDecoder(bitsPerSample, isFloat);
   const bytesPerSample = bitsPerSample / 8;
   const totalBins = Math.max(1, Math.ceil(frameCount / binSamples));
-  const framesPerSlice = Math.max(binSamples, Math.floor(SLICE_BYTES / blockAlign));
+  // Slices are whole multiples of a bin, so no bin is split across two slices
+  // (a split bin would be sent twice and later bins shifted). Holds for any rate.
+  const framesPerSlice =
+    Math.max(1, Math.floor(SLICE_BYTES / blockAlign / binSamples)) * binSamples;
 
   let frame = 0;
   // Flush a batch of finished bins whenever it grows past this many bins.
