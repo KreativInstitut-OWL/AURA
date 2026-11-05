@@ -644,7 +644,7 @@ function Workstation() {
             bins: msg.envelopeBins,
             envelope: msg.envelope,
             // Keep the low-passed scan: the render envelope is unfiltered.
-            low: levelsRef.current.low,
+            low: levelsRef.current.low ?? null,
             live: null,
           };
           setScanPct(1);
