@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { positionAt } from "./adm";
 import { buildAmbixHeader, packInt24 } from "./ambix";
-import { makeDecoder } from "./decode-pcm";
+import { decodeChannel } from "./decode-pcm";
 import { channelCount, encodeDirection } from "./sh";
 import { ClippingGate } from "./clipping";
 import type { RenderSource, RenderWorkerMessage, WorkerRequest, WorkerResponse } from "./types";
@@ -59,7 +59,6 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   const { file, config, container } = req;
   const M = channelCount(config.order);
   const totalFrames = container.frameCount;
-  const decode = makeDecoder(container.bitsPerSample, container.isFloat);
   const started = performance.now();
 
   const sources = req.sources.filter((s) => !(s.isLFE && config.lfeRouting === "off"));
@@ -134,6 +133,16 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   const envelope = new Float32Array(inCh * envelopeBins);
   const sourcePeaks = new Float32Array(inCh);
   const allSources = req.sources;
+  // One decoded buffer per input channel that any source reads.
+  const decoded = new Map<number, Float32Array>();
+  for (const s of allSources) {
+    if (s.channelIndex >= 0 && s.channelIndex < inCh && !decoded.has(s.channelIndex)) {
+      decoded.set(s.channelIndex, new Float32Array(FRAME_BLOCK));
+    }
+  }
+  const sig = new Float32Array(FRAME_BLOCK);
+  /** Peak per order tier: ACN 0–15 (3OA), 16–35 (adds 5OA), 36–63 (adds 7OA). */
+  const groupPeaks = new Float32Array(3);
 
   while (frame < totalFrames) {
     if (gate.cancelled) return;
@@ -144,19 +153,23 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
     if (raw.byteLength < frames * container.blockAlign) break;
     if (gate.cancelled) return;
 
+    // Decode every channel in use exactly once per block.
+    for (const [ci, buf] of decoded) {
+      decodeChannel(raw, frames, container.blockAlign, ci * bytesPerSample, container.bitsPerSample, container.isFloat, buf);
+    }
+
     // --- Input level metering (drives the spatial viewer) ---
     sourcePeaks.fill(0);
     // Peak scans discard the viewer envelope, so skip that work entirely.
     if (!scan) for (const s of allSources) {
       const ci = s.channelIndex;
-      if (ci < 0 || ci >= inCh) continue;
-      const chOff = ci * bytesPerSample;
+      const x = decoded.get(ci);
+      if (!x) continue;
       let pk = 0;
       for (let f = 0; f < frames; f++) {
-        const v = Math.abs(decode(raw, f * container.blockAlign + chOff));
+        const v = Math.abs(x[f]!);
         if (v > pk) pk = v;
-        const bin = ((frame + f) / binSamples) | 0;
-        const idx = ci * envelopeBins + bin;
+        const idx = ci * envelopeBins + (((frame + f) / binSamples) | 0);
         if (v > envelope[idx]!) envelope[idx] = v;
       }
       sourcePeaks[ci] = pk;
@@ -164,16 +177,17 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
 
     planar.fill(0, 0, M * frames);
 
-
-    // --- Bed: static coefficients ---
+    // --- Bed: static coefficients, one contiguous pass per ACN channel ---
     for (const b of beds) {
       const C = bedCoeffs.get(b)!;
       const g = b.gain * config.masterGain;
-      const chOff = b.channelIndex * bytesPerSample;
-      for (let f = 0; f < frames; f++) {
-        const s = decode(raw, f * container.blockAlign + chOff) * g;
-        if (s === 0) continue;
-        for (let l = 0; l < M; l++) planar[l * frames + f] = planar[l * frames + f]! + s * C[l]!;
+      const x = decoded.get(b.channelIndex)!;
+      for (let f = 0; f < frames; f++) sig[f] = x[f]! * g;
+      for (let l = 0; l < M; l++) {
+        const c = C[l]!;
+        if (c === 0) continue;
+        const base = l * frames;
+        for (let f = 0; f < frames; f++) planar[base + f] = planar[base + f]! + sig[f]! * c;
       }
     }
 
@@ -182,40 +196,43 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
       const filt = lfeFilters.get(l)!;
       const C = lfeCoeffs.get(l)!;
       const g = (LFE_GAIN_VALUE[config.lfeGain] ?? Math.SQRT1_2) * config.masterGain;
-      const chOff = l.channelIndex * bytesPerSample;
-      for (let f = 0; f < frames; f++) {
-        const s = filt.process(decode(raw, f * container.blockAlign + chOff)) * g;
-        if (s === 0) continue;
-        for (let c = 0; c < M; c++) {
-          if (C[c] === 0) continue;
-          planar[c * frames + f] = planar[c * frames + f]! + s * C[c]!;
-        }
+      const x = decoded.get(l.channelIndex)!;
+      for (let f = 0; f < frames; f++) sig[f] = filt.process(x[f]!) * g;
+      for (let c = 0; c < M; c++) {
+        const k = C[c]!;
+        if (k === 0) continue;
+        const base = c * frames;
+        for (let f = 0; f < frames; f++) planar[base + f] = planar[base + f]! + sig[f]! * k;
       }
     }
 
-
     // --- Objects: sub-block coefficient ramping ---
     for (const o of objects) {
-      const chOff = o.channelIndex * bytesPerSample;
+      const x = decoded.get(o.channelIndex)!;
+      let p0 = positionAt(o.points, frame);
+      encodeDirection(config.order, p0.azimuth, p0.elevation, cA);
       for (let sub = 0; sub < frames; sub += RAMP) {
         const n = Math.min(RAMP, frames - sub);
-        const t0 = frame + sub;
-        const p0 = positionAt(o.points, t0);
-        const p1 = positionAt(o.points, t0 + n);
-        encodeDirection(config.order, p0.azimuth, p0.elevation, cA);
+        const p1 = positionAt(o.points, frame + sub + n);
         encodeDirection(config.order, p1.azimuth, p1.elevation, cB);
         const g0 = p0.gain * config.masterGain;
         const g1 = p1.gain * config.masterGain;
+        let silent = true;
         for (let f = 0; f < n; f++) {
-          const t = f / n;
-          const s = decode(raw, (sub + f) * container.blockAlign + chOff) * (g0 + (g1 - g0) * t);
-          if (s === 0) continue;
-          const idx = sub + f;
-          for (let l = 0; l < M; l++) {
-            const c = cA[l]! + (cB[l]! - cA[l]!) * t;
-            planar[l * frames + idx] = planar[l * frames + idx]! + s * c;
-          }
+          const v = x[sub + f]! * (g0 + (g1 - g0) * (f / n));
+          sig[f] = v;
+          if (v !== 0) silent = false;
         }
+        if (!silent) for (let l = 0; l < M; l++) {
+          const a = cA[l]!;
+          const d = cB[l]! - a;
+          if (a === 0 && d === 0) continue;
+          const base = l * frames + sub;
+          for (let f = 0; f < n; f++) planar[base + f] = planar[base + f]! + sig[f]! * (a + d * (f / n));
+        }
+        // The end of this sub-block is the start of the next one.
+        cA.set(cB);
+        p0 = p1;
       }
     }
 
@@ -228,6 +245,8 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
         if (a > pk) pk = a;
       }
       peaks[l] = pk;
+      const grp = l < 16 ? 0 : l < 36 ? 1 : 2;
+      if (pk > groupPeaks[grp]!) groupPeaks[grp] = pk;
       if (pk > maxPeak) {
         maxPeak = pk;
         maxPeakChannel = l;
@@ -280,6 +299,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
       elapsedMs: performance.now() - started - pausedMs,
       maxPeak,
       maxPeakChannel,
+      groupPeaks: new Float32Array(groupPeaks),
       // The render already read every sample, so the viewer gets the full
       // envelope for free — no second pass over the file is needed.
       envelope: envCopy,
