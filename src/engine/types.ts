@@ -171,6 +171,8 @@ export type WorkerResponse =
       elapsedMs: number;
       maxPeak: number;
       maxPeakChannel: number;
+      /** max peak per order tier: [ACN 0–15, 16–35, 36–63] (unused tiers stay 0) */
+      groupPeaks: Float32Array;
       /** complete input-channel peak envelope, [channel * bins + bin] */
       envelope: Float32Array | null;
       envelopeBins: number;

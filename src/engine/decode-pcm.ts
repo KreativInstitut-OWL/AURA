@@ -8,6 +8,39 @@ const scratch = new Uint8Array(8);
 const f32 = new Float32Array(scratch.buffer, 0, 1);
 const f64 = new Float64Array(scratch.buffer);
 
+/**
+ * Decode one interleaved channel of a block into `out` in a single tight loop.
+ * Same values as makeDecoder, but without a function call per sample.
+ */
+export function decodeChannel(
+  bytes: Uint8Array, frames: number, blockAlign: number, chOff: number,
+  bits: number, isFloat: boolean, out: Float32Array,
+): void {
+  let o = chOff;
+  if (isFloat) {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (bits === 32) for (let f = 0; f < frames; f++, o += blockAlign) out[f] = dv.getFloat32(o, true);
+    else if (bits === 64) for (let f = 0; f < frames; f++, o += blockAlign) out[f] = dv.getFloat64(o, true);
+    else throw new Error(`Unsupported float bit depth: ${bits}`);
+    return;
+  }
+  if (bits === 24) {
+    for (let f = 0; f < frames; f++, o += blockAlign) {
+      const u = bytes[o]! | (bytes[o + 1]! << 8) | (bytes[o + 2]! << 16);
+      out[f] = ((u << 8) >> 8) / 8388608;
+    }
+  } else if (bits === 16) {
+    for (let f = 0; f < frames; f++, o += blockAlign) {
+      const u = bytes[o]! | (bytes[o + 1]! << 8);
+      out[f] = ((u << 16) >> 16) / 32768;
+    }
+  } else if (bits === 32) {
+    for (let f = 0; f < frames; f++, o += blockAlign) {
+      out[f] = (bytes[o]! | (bytes[o + 1]! << 8) | (bytes[o + 2]! << 16) | (bytes[o + 3]! << 24)) / 2147483648;
+    }
+  } else throw new Error(`Unsupported bit depth: ${bits}`);
+}
+
 export function makeDecoder(bits: number, isFloat: boolean) {
   if (isFloat) {
     if (bits === 32) {
