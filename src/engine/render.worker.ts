@@ -6,7 +6,7 @@ import { channelCount, encodeDirection } from "./sh";
 import { ClippingGate } from "./clipping";
 import type { RenderSource, RenderWorkerMessage, WorkerRequest, WorkerResponse } from "./types";
 
-const FRAME_BLOCK = 2048; // processing frames per pass
+const FRAME_BLOCK = 32768; // frames per pass — large blocks keep browser file reads few (each slice is a slow async call)
 const RAMP = 64; // sub-block coefficient ramp interval
 import { ENVELOPE_BIN_SEC, LFE_GAIN_VALUE } from "./types";
 
@@ -146,7 +146,8 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
 
     // --- Input level metering (drives the spatial viewer) ---
     sourcePeaks.fill(0);
-    for (const s of allSources) {
+    // Peak scans discard the viewer envelope, so skip that work entirely.
+    if (!scan) for (const s of allSources) {
       const ci = s.channelIndex;
       if (ci < 0 || ci >= inCh) continue;
       const chOff = ci * bytesPerSample;
