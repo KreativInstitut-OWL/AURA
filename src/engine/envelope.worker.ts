@@ -8,6 +8,7 @@
  * the ADM keyframe timeline used by the spatial viewer.
  */
 import { makeDecoder } from "./decode-pcm";
+import { Butterworth4, LFE_CUTOFF_HZ } from "./butterworth";
 import type { EnvelopeRequest, EnvelopeResponse } from "./types";
 
 const SLICE_BYTES = 2 * 1024 * 1024; // keep peak memory tiny
@@ -30,15 +31,22 @@ async function scan(req: EnvelopeRequest) {
   // Flush a batch of finished bins whenever it grows past this many bins.
   const FLUSH_BINS = 256;
   let batch: number[] = [];
+  // Parallel envelope of every channel through the LFE low-pass, so the peak
+  // estimate finds where an LFE channel is loudest *after* its 120 Hz filter.
+  let lowBatch: number[] = [];
+  const filters = Array.from({ length: channels }, () => new Butterworth4(LFE_CUTOFF_HZ, container.sampleRate));
   let batchStart = 0;
 
   const flush = () => {
     if (batch.length === 0) return;
     const data = new Float32Array(batch);
-    post({ type: "bins", startBin: batchStart, count: data.length / channels, channels, data }, [
+    const low = new Float32Array(lowBatch);
+    post({ type: "bins", startBin: batchStart, count: data.length / channels, channels, data, low }, [
       data.buffer,
+      low.buffer,
     ]);
     batch = [];
+    lowBatch = [];
   };
 
   while (frame < frameCount) {
@@ -56,15 +64,19 @@ async function scan(req: EnvelopeRequest) {
       const bin = Math.floor(absFrame / binSamples);
       const binEnd = Math.min(available, (bin + 1) * binSamples - frame);
       const peaks = new Float32Array(channels);
+      const lowPeaks = new Float32Array(channels);
       for (let i = f; i < binEnd; i++) {
         const base = i * blockAlign;
         for (let c = 0; c < channels; c++) {
-          const v = Math.abs(decode(raw, base + c * bytesPerSample));
+          const x = decode(raw, base + c * bytesPerSample);
+          const v = Math.abs(x);
           if (v > peaks[c]!) peaks[c] = v;
+          const lv = Math.abs(filters[c]!.process(x));
+          if (lv > lowPeaks[c]!) lowPeaks[c] = lv;
         }
       }
       if (batch.length === 0) batchStart = bin;
-      for (let c = 0; c < channels; c++) batch.push(peaks[c]!);
+      for (let c = 0; c < channels; c++) { batch.push(peaks[c]!); lowBatch.push(lowPeaks[c]!); }
       f = binEnd;
       if (batch.length / channels >= FLUSH_BINS) flush();
     }

@@ -311,6 +311,7 @@ function Workstation() {
       binSamples,
       bins,
       envelope: new Float32Array(channels * bins),
+      low: new Float32Array(channels * bins),
       live: null,
     };
     setScanPct(0);
@@ -323,11 +324,15 @@ function Workstation() {
       const msg = ev.data;
       if (msg.type === "bins") {
         const env = levelsRef.current.envelope;
+        const low = levelsRef.current.low;
         if (!env) return;
         for (let b = 0; b < msg.count; b++) {
           const bin = msg.startBin + b;
           if (bin >= bins) break;
-          for (let c = 0; c < msg.channels; c++) env[c * bins + bin] = msg.data[b * msg.channels + c]!;
+          for (let c = 0; c < msg.channels; c++) {
+            env[c * bins + bin] = msg.data[b * msg.channels + c]!;
+            if (low) low[c * bins + bin] = msg.low[b * msg.channels + c]!;
+          }
         }
         setScanPct(Math.min(1, (msg.startBin + msg.count) / bins));
       } else if (msg.type === "done") {
@@ -478,10 +483,16 @@ function Workstation() {
         .filter((s) => !(s.isLFE && lfeRouting === "off") && s.channelIndex >= 0)
         .map((s) => s.channelIndex),
     );
+    // LFE channels pick their loudest moment *after* the 120 Hz low-pass,
+    // otherwise speech or bleed on the LFE track wins and the sub peak is missed.
+    const lfeChannels = new Set(
+      analysis.sources.filter((s) => s.isLFE && lfeRouting !== "off" && s.channelIndex >= 0).map((s) => s.channelIndex),
+    );
     const windows = peakWindows(
       lv.envelope, lv.bins, lv.binSamples, used,
       Math.round(analysis.container.format.sampleRate * 0.25),
       analysis.container.frameCount,
+      lv.low ? { envelope: lv.low, channels: lfeChannels } : undefined,
     );
     const worker = new Worker(new URL("../engine/render.worker.ts", import.meta.url), { type: "module" });
     scanWorkerRef.current = worker;
@@ -632,6 +643,8 @@ function Workstation() {
             binSamples: msg.binSamples,
             bins: msg.envelopeBins,
             envelope: msg.envelope,
+            // Keep the low-passed scan: the render envelope is unfiltered.
+            low: levelsRef.current.low,
             live: null,
           };
           setScanPct(1);

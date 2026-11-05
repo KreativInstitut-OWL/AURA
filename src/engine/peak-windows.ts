@@ -2,6 +2,8 @@
  * Candidate regions for the fast peak estimate: one window around the loudest
  * envelope bin of each used input channel, merged where they overlap.
  * The envelope stores the absolute sample peak per bin (channel-major).
+ * LFE channels are low-passed before encoding, so their loudest moment is
+ * looked up in `lfe.envelope` (same layout, measured after the 120 Hz filter).
  */
 export function peakWindows(
   envelope: Float32Array,
@@ -10,14 +12,16 @@ export function peakWindows(
   channels: Iterable<number>,
   halfWindowFrames: number,
   totalFrames: number,
+  lfe?: { envelope: Float32Array; channels: ReadonlySet<number> },
 ): [number, number][] {
   const raw: [number, number][] = [];
   for (const ci of channels) {
     let best = -1;
     let bestBin = 0;
     const base = ci * bins;
+    const env = lfe && lfe.channels.has(ci) ? lfe.envelope : envelope;
     for (let b = 0; b < bins; b++) {
-      const v = envelope[base + b]!;
+      const v = env[base + b]!;
       if (v > best) { best = v; bestBin = b; }
     }
     if (best <= 0) continue; // silent channel: nothing to check
