@@ -94,7 +94,8 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   const blobParts: BlobPart[] = [];
   let closed = false;
   try {
-  if (req.handle) writable = await req.handle.createWritable();
+  const scan = req.scanOnly === true;
+  if (req.handle && !scan) writable = await req.handle.createWritable();
   const header = buildAmbixHeader({
     channels: M,
     sampleRate: container.sampleRate,
@@ -104,6 +105,8 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   // When a file handle is available the data streams straight to disk and is
   // never buffered, which keeps memory flat for multi-gigabyte renders.
   const write = async (chunk: Uint8Array<ArrayBuffer>) => {
+    // Peak scans measure only; nothing is written or buffered.
+    if (scan) return;
     if (writable) await writable.write(chunk);
     else blobParts.push(new Uint8Array(chunk).buffer);
     bytesWritten += chunk.byteLength;
@@ -231,7 +234,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
     }
 
     // Hold the current float block before quantisation or writing any clipped audio.
-    if (gate.shouldPause(maxPeak)) {
+    if (!scan && gate.shouldPause(maxPeak)) {
       const pausedAt = performance.now();
       const waiting = gate.wait();
       post({
@@ -243,8 +246,8 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
       if (gate.cancelled) return;
     }
 
-    packInt24(planar, M, frames, outBytes);
-    await write(outBytes.subarray(0, M * frames * 3));
+    if (!scan) packInt24(planar, M, frames, outBytes);
+    if (!scan) await write(outBytes.subarray(0, M * frames * 3));
 
     frame += frames;
     const now = performance.now();
@@ -271,7 +274,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   post(
     {
       type: "done",
-      blob: writable ? null : new Blob(blobParts, { type: "audio/wav" }),
+      blob: writable || scan ? null : new Blob(blobParts, { type: "audio/wav" }),
       bytesWritten,
       elapsedMs: performance.now() - started - pausedMs,
       maxPeak,

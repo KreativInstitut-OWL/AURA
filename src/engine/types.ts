@@ -135,6 +135,8 @@ export type WorkerRequest = {
   };
   config: RenderConfig;
   handle: FileSystemFileHandle | null;
+  /** Measure the output peak only: no writing, no clipping pause. */
+  scanOnly?: boolean;
 };
 
 export type WorkerResponse =
