@@ -211,6 +211,8 @@ export type EnvelopeResponse =
       channels: number;
       /** interleaved [bin * channels + channel] */
       data: Float32Array;
+      /** same layout, measured after the 120 Hz LFE low-pass */
+      low: Float32Array;
     }
   | { type: "done"; totalBins: number }
   | { type: "error"; message: string };
@@ -222,6 +224,8 @@ export interface LevelState {
   bins: number;
   /** [channel * bins + bin], filled progressively */
   envelope: Float32Array | null;
+  /** [channel * bins + bin] after the 120 Hz LFE low-pass (peak estimate only) */
+  low?: Float32Array | null;
   /** live per-input-channel peaks while a render is running */
   live: Float32Array | null;
 }
