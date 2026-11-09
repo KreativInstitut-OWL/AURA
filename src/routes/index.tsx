@@ -366,20 +366,12 @@ function Workstation() {
   }, [file, container]);
 
 
-  // Idle trajectory animation
+  // Idle animation runs inside SpatialViewer; only the time readout is refreshed here, a few times per second.
+  const viewerHeadRef = useRef(0);
   useEffect(() => {
     if (!analysis || rendering) return;
-    let raf = 0;
-    const total = analysis.container.frameCount;
-    const rate = analysis.container.format.sampleRate;
-    const t0 = performance.now();
-    const tick = () => {
-      const s = (performance.now() - t0) / 1000;
-      setPlayhead(total > 0 ? (s * rate * 4) % total : 0);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const id = window.setInterval(() => setPlayhead(viewerHeadRef.current), 250);
+    return () => window.clearInterval(id);
   }, [analysis, rendering]);
 
   const loadFile = useCallback(
@@ -974,6 +966,8 @@ function Workstation() {
                   frameCount={analysis.container.frameCount}
                   sampleRate={analysis.container.format.sampleRate}
                   playheadSample={playhead}
+                  followPlayhead={rendering}
+                  playheadOutRef={viewerHeadRef}
                   levelsRef={levelsRef}
                   lfeRouting={lfeRouting}
                 />

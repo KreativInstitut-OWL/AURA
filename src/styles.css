@@ -163,6 +163,9 @@
   --input: oklch(0.915 0.003 260);
   --ring: oklch(0.68 0.14 162);
   --v2-valid: oklch(0.62 0.15 162);
+  --spatial-bed: #0284c7;
+  --spatial-obj: #f59e0b;
+  --spatial-lfe: #64748b;
   background-color: var(--background);
   background-image: none;
   color: var(--foreground);
@@ -189,6 +192,9 @@
   --input: oklch(0.31 0.006 260);
   --ring: oklch(0.75 0.15 162);
   --v2-valid: oklch(0.75 0.15 162);
+  --spatial-bed: #38bdf8;
+  --spatial-obj: #fbbf24;
+  --spatial-lfe: #94a3b8;
 }
 
 :root {
