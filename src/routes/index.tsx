@@ -242,7 +242,7 @@ function Workstation() {
 
   const [order, setOrder] = useState<Order>(3);
   const [lfeRouting, setLfeRouting] = useState<LfeRouting>("omni");
-  const [lfeGain, setLfeGain] = useState<LfeGain>("unity");
+  const [lfeGain, setLfeGain] = useState<LfeGain>("minus3");
 
   const [gainDb, setGainDb] = useState(0);
   /** On-demand peak pre-scan, measured at 0 dB master gain (encoding is linear). */
@@ -1078,7 +1078,11 @@ function Workstation() {
                   key={mode}
                   active={lfeRouting === mode}
                   disabled={rendering}
-                  onClick={() => setLfeRouting(mode)}
+                  onClick={() => {
+                    setLfeRouting(mode);
+                    if (mode === "omni") setLfeGain("minus3");
+                    else if (mode !== "off") setLfeGain("unity");
+                  }}
                 >
                   {t(labelEn, labelDe)}
                   <span className="ml-1.5 font-mono text-[9px] opacity-60">{t(hintEn, hintDe)}</span>
