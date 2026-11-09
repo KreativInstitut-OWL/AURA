@@ -674,6 +674,7 @@ function Workstation() {
           a.href = url;
           a.download = outName;
           a.rel = "noopener";
+          a.target = "_blank";
           document.body.appendChild(a);
           a.click();
           a.remove();
@@ -916,8 +917,8 @@ function Workstation() {
           <Panel title={t("7.1.2 bed reference", "7.1.2-Bed-Referenz")} icon={<Layers className="size-3.5" />}>
             <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
               {t(
-                "A Dolby Atmos bed is at most 7.1.2 — these ten channels. Wide and the remaining height positions arrive as dynamic objects and are placed from their own coordinates. Explicit coordinates in the file always win over this table.",
-                "Ein Dolby-Atmos-Bed umfasst höchstens 7.1.2 — diese zehn Kanäle. Wide- und weitere Höhenpositionen kommen als dynamische Objekte und werden nach ihren eigenen Koordinaten platziert. Explizite Koordinaten in der Datei haben immer Vorrang vor dieser Tabelle.",
+                "A Dolby Atmos bed is at most 7.1.2 — these ten channels. Wides and additional height positions arrive as dynamic objects and are placed from their own coordinates. Explicit coordinates in the file always override this table.",
+                "Ein Dolby-Atmos-Bed umfasst höchstens 7.1.2 — diese zehn Kanäle. Wide- und zusätzliche Höhenpositionen kommen als dynamische Objekte und werden nach ihren eigenen Koordinaten platziert. Explizite Koordinaten in der Datei überschreiben stets diese Tabelle.",
               )}
             </p>
             <div className="overflow-x-auto">
@@ -1021,8 +1022,30 @@ function Workstation() {
             title={t("Ambisonic order", "Ambisonics-Ordnung")}
             icon={<Layers className="size-3.5" />}
             right={
-              <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-full border border-border py-0.5 pl-2 pr-1 font-mono text-[10px] text-muted-foreground">
                 ACN · SN3D · AmbiX
+                <Popover>
+                  <PopoverTrigger
+                    aria-label={t("About ACN · SN3D · AmbiX", "Über ACN · SN3D · AmbiX")}
+                    className="inline-flex size-4 items-center justify-center rounded-full hover:text-foreground"
+                  >
+                    <Info className="size-3" />
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="v2-theme w-64 rounded-xl p-3 font-sans text-xs leading-relaxed">
+                    <p>
+                      <span className="font-semibold">AmbiX: </span>
+                      {t("Quasi-standard exchange format for Higher Order Ambisonics in DAWs and spatial tools.", "Quasi-Standard-Austauschformat für Higher Order Ambisonics in DAWs und Spatial-Tools.")}
+                    </p>
+                    <p className="mt-1">
+                      <span className="font-semibold">ACN: </span>
+                      {t("Channel order starting from 0 (W = 0, followed by Y, Z, X…).", "Kanalreihenfolge ab 0 (W = 0, gefolgt von Y, Z, X…).")}
+                    </p>
+                    <p className="mt-1">
+                      <span className="font-semibold">SN3D: </span>
+                      {t("Semi-normalisation for balanced directional energy.", "Semi-Normalisierung für ausgewogene Richtungsenergie.")}
+                    </p>
+                  </PopoverContent>
+                </Popover>
               </span>
             }
           >
@@ -1216,7 +1239,7 @@ function Workstation() {
             {pausedClip && <p role="status" className="mt-2 text-xs text-destructive">{t("Paused — clipping detected", "Pausiert — Übersteuerung erkannt")}</p>}
 
             {result && (
-              <div className="mt-3 rounded-lg border border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 p-3 text-xs">
+              <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-[var(--v2-valid)]/40 bg-[var(--v2-valid)]/10 p-3 text-xs">
                 <CircleCheck className="mr-2 inline size-4 text-[var(--v2-valid)]" />
                 {t(`Rendered ${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s.`, `${fmtBytes(bytesWritten)} in ${(elapsed / 1000).toFixed(1)} s gerendert.`)}
                 {clip && (
@@ -1234,13 +1257,13 @@ function Workstation() {
                     <a
                       href={result.url}
                       download={result.name}
-                      className="mt-2 flex items-center gap-2 font-mono text-[11px] underline"
+                      className="mt-2 flex items-start gap-2 break-all font-mono text-[11px] underline"
                     >
-                      <Download className="size-3" /> {t("Save again", "Erneut speichern")}: {result.name}
+                      <Download className="mt-0.5 size-3 shrink-0" /> <span className="min-w-0">{t("Save again", "Erneut speichern")}: {result.name}</span>
                     </a>
                   </>
                 ) : (
-                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                  <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
                     {t("Saved to the location you chose:", "Am gewählten Speicherort abgelegt:")} {result.name}
                   </p>
                 )}
