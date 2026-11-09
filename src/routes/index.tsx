@@ -152,7 +152,7 @@ const LFE_ROUTINGS: [LfeRouting, string, string, string, string][] = [
 ];
 
 const LFE_GAINS: [LfeGain, string, string, string][] = [
-  ["minus3", "−3 dB", "standard", "Standard"],
+  ["minus3", "−3 dB", "power match", "Leistungsanpassung"],
   ["unity", "0 dB", "unity", "Unity"],
   ["plus10", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
 ];
@@ -242,7 +242,7 @@ function Workstation() {
 
   const [order, setOrder] = useState<Order>(3);
   const [lfeRouting, setLfeRouting] = useState<LfeRouting>("omni");
-  const [lfeGain, setLfeGain] = useState<LfeGain>("minus3");
+  const [lfeGain, setLfeGain] = useState<LfeGain>("unity");
 
   const [gainDb, setGainDb] = useState(0);
   /** On-demand peak pre-scan, measured at 0 dB master gain (encoding is linear). */
@@ -384,6 +384,19 @@ function Workstation() {
       setChannelMap(null);
       setGainDb(0);
       setGroupPeaks(null);
+      // A new file starts from a clean idle state: no meters, progress or peaks from the last render.
+      scanWorkerRef.current?.terminate();
+      scanWorkerRef.current = null;
+      setPreScan(null);
+      setPeaks(null);
+      setFramesDone(0);
+      setBytesWritten(0);
+      setElapsed(0);
+      setClip(null);
+      setPausedClip(null);
+      setPlayhead(0);
+      viewerHeadRef.current = 0;
+      levelsRef.current.live = null;
       setFile(f);
       setAnalysing(true);
       try {
@@ -1186,6 +1199,7 @@ function Workstation() {
               </Button>
             )}
 
+            {(rendering || pausedClip) && (
             <div className="mt-3">
               <Progress value={pct} />
               <div className="mt-2 flex flex-wrap justify-between gap-2 font-mono text-[10px] text-muted-foreground">
@@ -1197,6 +1211,7 @@ function Workstation() {
                 <span>ETA {fmtTime(eta)}</span>
               </div>
             </div>
+            )}
 
             {pausedClip && <p role="status" className="mt-2 text-xs text-destructive">{t("Paused — clipping detected", "Pausiert — Übersteuerung erkannt")}</p>}
 
