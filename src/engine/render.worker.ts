@@ -258,7 +258,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   post(
     {
       type: "done",
-      blob: writable || scan ? null : new Blob(blobParts, { type: "audio/wav" }),
+      blob: writable || scan ? null : new Blob(blobParts, { type: "application/octet-stream" }),
       bytesWritten,
       elapsedMs: performance.now() - started - pausedMs,
       maxPeak,
