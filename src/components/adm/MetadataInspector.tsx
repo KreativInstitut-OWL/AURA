@@ -16,6 +16,9 @@ const TAG_TONES = {
   primary: "border-primary/40 bg-primary/10 text-primary",
   destructive: "border-destructive/50 bg-destructive/10 text-destructive",
   muted: "border-border text-muted-foreground",
+  bed: "border-[var(--spatial-bed)]/50 bg-[var(--spatial-bed)]/10 text-[var(--spatial-bed)]",
+  obj: "border-[var(--spatial-obj)]/50 bg-[var(--spatial-obj)]/10 text-[var(--spatial-obj)]",
+  lfe: "border-[var(--spatial-lfe)]/50 bg-[var(--spatial-lfe)]/10 text-[var(--spatial-lfe)]",
 } as const;
 
 function Tag({
@@ -199,7 +202,6 @@ export function MetadataInspector({
                     <th className="p-2 text-right">{t("Azimuth", "Azimut")}</th>
                     <th className="p-2 text-right">Elevation</th>
                     <th className="p-2 text-left">{t("Motion", "Bewegung")}</th>
-                    <th className="p-2 text-left">Status</th>
                     <th className="p-2 text-left">{t("Detail", "Details")}</th>
                   </tr>
                 </thead>
@@ -218,19 +220,18 @@ export function MetadataInspector({
                           <td className="p-2">{String(d.trackIndex).padStart(2, "0")}</td>
                           <td className="p-2">{d.name}</td>
                           <td className="p-2">
-                            <Tag
-                              tone={
-                                s?.isLFE
-                                  ? "accent"
-                                  : s?.kind === "bed"
-                                    ? "valid"
-                                    : s
-                                      ? "muted"
-                                      : "muted"
-                              }
-                            >
-                              {s?.isLFE ? "LFE" : (s?.kind ?? "—")}
-                            </Tag>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {d.status === "unresolved" ? (
+                                <Tag tone="destructive">{t("unresolved", "ungelöst")}</Tag>
+                              ) : (
+                                <Tag tone={s?.isLFE ? "lfe" : s?.kind === "bed" ? "bed" : s?.kind === "object" ? "obj" : "muted"}>
+                                  {s?.isLFE ? "LFE" : s?.kind === "bed" ? "Bed" : s?.kind === "object" ? t("Object", "Objekt") : "—"}
+                                </Tag>
+                              )}
+                              {d.guessed && d.status !== "unresolved" && (
+                                <Tag tone="muted">{t("guess", "geschätzt")}</Tag>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 text-right text-muted-foreground">
                             {!s
@@ -254,19 +255,6 @@ export function MetadataInspector({
                               </Tag>
                             )}
                           </td>
-                          <td className="p-2">
-                            <Tag
-                              tone={
-                                d.status === "unresolved"
-                                  ? "destructive"
-                                  : d.guessed
-                                    ? "accent"
-                                    : "primary"
-                              }
-                            >
-                              {statusLabel(d, t)}
-                            </Tag>
-                          </td>
                           <td className="max-w-[220px] p-2 text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <span className="min-w-0 truncate" title={detail}>{detail}</span>
@@ -278,7 +266,7 @@ export function MetadataInspector({
                         </tr>
                         {expanded === d.trackIndex && (
                           <tr className="border-t border-border bg-secondary/30">
-                            <td colSpan={7} aria-hidden="true" />
+                            <td colSpan={6} aria-hidden="true" />
                             <td className="max-w-0 p-2 pr-3">
                               {detail && (
                                 <p className="mb-2 whitespace-normal break-words text-foreground">{detail}</p>

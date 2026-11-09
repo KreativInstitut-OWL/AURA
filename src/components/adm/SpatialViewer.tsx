@@ -14,6 +14,8 @@ interface Props {
   levelsRef?: RefObject<LevelState>;
   /** how the LFE channel is encoded — drives the LFE marker */
   lfeRouting?: LfeRouting;
+  /** follow playheadSample (during a render); otherwise the viewer animates its own idle playhead */
+  followPlayhead?: boolean;
 }
 
 /** Objects often arrive as "Stem - Role"; only the role part is worth drawing. */
@@ -32,12 +34,16 @@ export function SpatialViewer({
   spinning = true,
   levelsRef,
   lfeRouting = "omni",
+  followPlayhead = false,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const yawRef = useRef(0.6);
   const dragRef = useRef<{ x: number; yaw: number } | null>(null);
-  const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting });
-  stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting };
+  const stateRef = useRef({ sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting, followPlayhead });
+  stateRef.current = { sources, frameCount, sampleRate, playheadSample, spinning, lfeRouting, followPlayhead };
+  const [showLevels, setShowLevels] = useState(true);
+  const showLevelsRef = useRef(true);
+  showLevelsRef.current = showLevels;
   const levels = levelsRef;
   const [autoRotate, setAutoRotate] = useState(true);
   const autoRef = useRef(true);
@@ -54,6 +60,7 @@ export function SpatialViewer({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     let raf = 0;
+    const t0 = performance.now();
 
     // Plain hex per theme: UI tokens are oklch greys in dark mode and render grey on canvas.
     const PALETTE = {
@@ -65,10 +72,19 @@ export function SpatialViewer({
       const {
         sources: srcs,
         frameCount: total,
-        playheadSample: head,
+        playheadSample: headProp,
+        sampleRate: rate,
+        followPlayhead: follow,
         spinning: spin,
         lfeRouting: lfeMode,
       } = stateRef.current;
+      // Idle playhead runs here at 4x realtime so the page never re-renders per frame.
+      const head = follow
+        ? headProp
+        : total > 0
+          ? (((performance.now() - t0) / 1000) * rate * 4) % total
+          : 0;
+      onPlayheadRef.current?.(head);
       const pal = document.documentElement.classList.contains("dark") ? PALETTE.dark : PALETTE.light;
       const cPrimary = pal.bed;
       const cAccent = pal.obj;
@@ -104,7 +120,7 @@ export function SpatialViewer({
        */
       const levelOf = (channelIndex: number): number => {
         const st = levels?.current;
-        if (!st) return -1;
+        if (!st || !showLevelsRef.current) return -1;
         let v = -1;
         if (st.live && channelIndex < st.live.length) v = st.live[channelIndex]!;
         else if (st.envelope && st.bins > 0) {
@@ -291,12 +307,25 @@ export function SpatialViewer({
       }}
       onPointerMove={(e) => {
         if (!dragRef.current) return;
-        yawRef.current = dragRef.current.yaw + (e.clientX - dragRef.current.x) * 0.008;
+        yawRef.current = dragRef.current.yaw - (e.clientX - dragRef.current.x) * 0.008;
       }}
       onPointerUp={() => {
         dragRef.current = null;
       }}
     />
+      <button
+        type="button"
+        onClick={() => setShowLevels((v) => !v)}
+        aria-label={showLevels ? t("Hide level display", "Pegelanzeige ausblenden") : t("Show level display", "Pegelanzeige einblenden")}
+        title={showLevels ? t("Hide level display", "Pegelanzeige ausblenden") : t("Show level display", "Pegelanzeige einblenden")}
+        aria-pressed={showLevels}
+        className="absolute bottom-2 right-11 inline-flex size-7 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
+      >
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2 12h2M6 8v8M10 4v16M14 7v10M18 10v4M22 12h0" />
+          {!showLevels && <path d="M3 3l18 18" />}
+        </svg>
+      </button>
       <button
         type="button"
         onClick={() => setAutoRotate((v) => !v)}
