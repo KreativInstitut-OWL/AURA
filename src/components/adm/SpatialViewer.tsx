@@ -16,6 +16,8 @@ interface Props {
   lfeRouting?: LfeRouting;
   /** follow playheadSample (during a render); otherwise the viewer animates its own idle playhead */
   followPlayhead?: boolean;
+  /** receives the currently drawn playhead sample each frame (no re-render) */
+  playheadOutRef?: RefObject<number>;
 }
 
 /** Objects often arrive as "Stem - Role"; only the role part is worth drawing. */
@@ -35,6 +37,7 @@ export function SpatialViewer({
   levelsRef,
   lfeRouting = "omni",
   followPlayhead = false,
+  playheadOutRef,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const yawRef = useRef(0.6);
@@ -84,7 +87,7 @@ export function SpatialViewer({
         : total > 0
           ? (((performance.now() - t0) / 1000) * rate * 4) % total
           : 0;
-      onPlayheadRef.current?.(head);
+      if (playheadOutRef) (playheadOutRef as { current: number }).current = head;
       const pal = document.documentElement.classList.contains("dark") ? PALETTE.dark : PALETTE.light;
       const cPrimary = pal.bed;
       const cAccent = pal.obj;
