@@ -676,6 +676,8 @@ function Workstation() {
         levelsRef.current.live = msg.sourcePeaks;
       } else if (msg.type === "done") {
         setRendering(false);
+        // Finished renders return the output meters to idle instead of freezing on the last block.
+        setPeaks(null);
         setBytesWritten(msg.bytesWritten);
         setElapsed(msg.elapsedMs);
         // Full envelope comes back from the render for free.
