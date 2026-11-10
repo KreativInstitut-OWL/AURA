@@ -15,6 +15,7 @@
 - The AURA UI is themed by the `.v2-theme` scope in `src/styles.css`, light by default with a `.dark` class on `<html>`.
 - Binaural audition is disabled in the UI but its engine stays in the repo (`src/lib/hoast.ts`, `src/components/adm/BinauralDeck.tsx`, `src/engine/preview.worker.ts`, `src/engine/decode.worker.ts`) for a future version — do not delete.
 - The render worker never buffers output in memory when a `FileSystemFileHandle` is available; without one (Safari) it streams into a temporary private-storage (OPFS) file and returns that disk-backed file for the automatic download, falling back to an in-memory blob only if OPFS is unavailable — this keeps multi-gigabyte renders from crashing the tab.
+- Finished files over 1 GiB are not auto-downloaded; the result card shows a download button instead, because Safari crashes the tab on a late scripted click for multi-GB blobs.
 - Clipping decisions use a worker message gate before quantisation: cancellation aborts the writable transaction, and explicit continuation acknowledges hard clipping for the remainder of that render; no limiter is introduced.
 - Gain recommendations use the shared clipping helper so paused and completed renders apply the same safety margin and rounding.
 - The peak pre-scan always encodes at 7th order and reports one peak per order tier (ACN 0–15, 16–35, 36–63), so switching order never needs a rescan; the render inner loops decode each channel once per block and accumulate per ACN channel for speed.
