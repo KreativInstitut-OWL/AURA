@@ -674,7 +674,6 @@ function Workstation() {
           a.href = url;
           a.download = outName;
           a.rel = "noopener";
-          a.target = "_blank";
           document.body.appendChild(a);
           a.click();
           a.remove();
