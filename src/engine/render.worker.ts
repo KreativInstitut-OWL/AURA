@@ -59,6 +59,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   const scan = req.scanOnly === true;
   if (req.handle && !scan) writable = await req.handle.createWritable();
   else if (!scan) opfs = await openOpfsSink();
+  if (!scan) diag(`worker: sink=${writable ? "save-picker" : opfs ? "opfs-disk" : "RAM (OPFS unavailable: " + opfsError + ")"}`);
   const header = buildAmbixHeader({
     channels: M,
     sampleRate: container.sampleRate,
@@ -260,8 +261,10 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   if (gate.cancelled) return;
   if (writable) await writable.close();
   let outBlob: Blob | null = null;
+  if (!scan) diag(`worker: audio finished, ${(bytesWritten / 1e9).toFixed(2)} GB`);
   if (opfs) outBlob = await opfs.finish();
   else if (!writable && !scan) outBlob = new Blob(blobParts, { type: "audio/wav" });
+  if (!scan) diag(`worker: output file ready (${outBlob ? (outBlob.size / 1e9).toFixed(2) + " GB" : "on disk"}), posting`);
   closed = true;
   const envCopy = new Float32Array(envelope);
   post(
@@ -325,9 +328,14 @@ async function openOpfsSink(): Promise<OpfsSink | null> {
         await root.removeEntry(OPFS_NAME).catch(() => {});
       },
     };
-  } catch {
+  } catch (e) {
+    opfsError = e instanceof Error ? e.message : String(e);
     return null;
   }
+}
+let opfsError = "";
+function diag(step: string) {
+  (self as unknown as Worker).postMessage({ type: "diag", step });
 }
 
 let activeGate: ClippingGate | null = null;

@@ -231,6 +231,17 @@ function Pill({
 }
 
 /** Above this size the finished file waits for a real click (Safari crashes on a scripted one). */
+const DIAG_KEY = "aura-crash-diag";
+function diagStep(step: string) {
+  try {
+    const prev = localStorage.getItem(DIAG_KEY) ?? "";
+    localStorage.setItem(DIAG_KEY, `${prev}${new Date().toISOString().slice(11, 19)} ${step}\n`);
+  } catch { /* storage full */ }
+}
+function diagClear() {
+  try { localStorage.removeItem(DIAG_KEY); } catch { /* ignore */ }
+}
+declare const __BUILD_TIME__: string;
 const AUTO_DOWNLOAD_MAX_BYTES = 1024 ** 3;
 
 function Workstation() {
@@ -378,9 +389,20 @@ function Workstation() {
     return () => window.clearInterval(id);
   }, [analysis, rendering]);
 
+  // Crash flight recorder: steps survive a Safari tab kill in localStorage.
+  const [crashDiag, setCrashDiag] = useState<string | null>(null);
+  useEffect(() => {
+    const v = localStorage.getItem(DIAG_KEY);
+    if (v) setCrashDiag(`${navigator.userAgent}\n${v}`);
+  }, []);
+
   const loadFile = useCallback(
     async (f: File) => {
-      if (workerRef.current) return;
+      // Always start clean: stop any render (running or paused on clipping).
+      workerRef.current?.terminate();
+      workerRef.current = null;
+      setRendering(false);
+      setStopping(false);
       setError(null);
       setAnalysis(null);
       setContainer(null);
@@ -640,6 +662,8 @@ function Workstation() {
         levelsRef.current.live = null;
         worker.terminate();
         workerRef.current = null;
+      } else if ((msg as { type: string }).type === "diag") {
+        diagStep((msg as unknown as { step: string }).step);
       } else if (msg.type === "progress") {
         setFramesDone(msg.framesDone);
         setPeaks(msg.peaks);
@@ -670,7 +694,9 @@ function Workstation() {
         const suggested = suggestedMasterGain(gainDb, peakDb);
         setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
 
+        diagStep(`main: done received, blob ${msg.blob ? (msg.blob.size / 1e9).toFixed(2) + " GB" : "none"}`);
         const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
+        diagStep("main: createObjectURL ok");
         // Large files skip the automatic download: Safari turns a late
         // scripted click on a multi-GB file into a page crash, while a real
         // click on the button below downloads it cleanly.
@@ -683,9 +709,12 @@ function Workstation() {
           a.download = outName;
           a.rel = "noopener";
           document.body.appendChild(a);
+          diagStep("main: auto-click");
           a.click();
           a.remove();
         }
+        diagStep("main: result shown");
+        diagClear();
         worker.terminate();
         workerRef.current = null;
       } else {
@@ -771,6 +800,19 @@ function Workstation() {
             </span>
           </div>
 
+          {/* DRAFT ONLY — remove before merging */}
+          <span className="rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+            DRAFT BUILD {__BUILD_TIME__}
+          </span>
+          {crashDiag && (
+            <div className="w-full rounded-lg border border-destructive bg-destructive/10 p-3 font-mono text-[11px] text-destructive">
+              <div className="mb-1 flex items-center justify-between font-sans font-semibold">
+                <span>{t("Previous render crashed. Last steps:", "Letzter Render ist abgestürzt. Letzte Schritte:")}</span>
+                <button type="button" className="underline" onClick={() => { navigator.clipboard?.writeText(crashDiag); }}>{t("Copy", "Kopieren")}</button>
+              </div>
+              <pre className="whitespace-pre-wrap">{crashDiag}</pre>
+            </div>
+          )}
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
@@ -870,6 +912,8 @@ function Workstation() {
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
+                    // Clear so picking the same file again still fires onChange.
+                    e.target.value = "";
                     if (f) void loadFile(f);
                   }}
                 />
