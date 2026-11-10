@@ -4,6 +4,7 @@ import {
   Boxes,
   CircleCheck,
   Download,
+  Save,
   FileAudio,
   Info,
   ArrowUpRight,
@@ -1263,7 +1264,7 @@ function Workstation() {
                   <>
                     {result.auto ? (
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {t("The download started automatically.", "Der Download wurde automatisch gestartet.")}
+                      {t("The file was saved automatically.", "Die Datei wurde automatisch gespeichert.")}
                     </p>
                     ) : (
                     <a
@@ -1271,7 +1272,7 @@ function Workstation() {
                       download={result.name}
                       className="mt-2 inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background"
                     >
-                      <Download className="size-3.5" /> {t(`Download file (${fmtBytes(bytesWritten)})`, `Datei herunterladen (${fmtBytes(bytesWritten)})`)}
+                      <Save className="size-3.5" /> {t(`Save file (${fmtBytes(bytesWritten)})`, `Datei speichern (${fmtBytes(bytesWritten)})`)}
                     </a>
                     )}
                     {result.auto && <a
@@ -1279,7 +1280,7 @@ function Workstation() {
                       download={result.name}
                       className="mt-2 flex items-start gap-2 break-all font-mono text-[11px] underline"
                     >
-                      <Download className="mt-0.5 size-3 shrink-0" /> <span className="min-w-0">{t("Save again", "Erneut speichern")}: {result.name}</span>
+                      <Save className="mt-0.5 size-3 shrink-0" /> <span className="min-w-0">{t("Save again", "Erneut speichern")}: {result.name}</span>
                     </a>}
                   </>
                 ) : (
