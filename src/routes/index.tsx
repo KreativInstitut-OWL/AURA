@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { BUILD_TIME } from "@/lib/build-time";
 import {
   Activity,
   Boxes,
@@ -241,7 +242,6 @@ function diagStep(step: string) {
 function diagClear() {
   try { localStorage.removeItem(DIAG_KEY); } catch { /* ignore */ }
 }
-declare const __BUILD_TIME__: string;
 const AUTO_DOWNLOAD_MAX_BYTES = 1024 ** 3;
 
 function Workstation() {
@@ -837,7 +837,7 @@ function Workstation() {
 
           {/* DRAFT ONLY — remove before merging */}
           <span className="rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-            DRAFT BUILD {__BUILD_TIME__}
+            DRAFT BUILD {BUILD_TIME}
           </span>
           <button
             type="button"
