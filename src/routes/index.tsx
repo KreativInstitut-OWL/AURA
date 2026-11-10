@@ -229,6 +229,9 @@ function Pill({
   );
 }
 
+/** Above this size the finished file waits for a real click (Safari crashes on a scripted one). */
+const AUTO_DOWNLOAD_MAX_BYTES = 1024 ** 3;
+
 function Workstation() {
   const { t, lang, setLang } = useLang();
   const privacy = usePrivacyDialog();
@@ -258,7 +261,7 @@ function Workstation() {
   const [peaks, setPeaks] = useState<Float32Array | null>(null);
   const [bytesWritten, setBytesWritten] = useState(0);
   const [elapsed, setElapsed] = useState(0);
-  const [result, setResult] = useState<{ url: string; name: string } | null>(null);
+  const [result, setResult] = useState<{ url: string; name: string; auto?: boolean } | null>(null);
   const [playhead, setPlayhead] = useState(0);
   /** peak report of the last finished render, in dBFS */
   const [clip, setClip] = useState<{
@@ -667,8 +670,12 @@ function Workstation() {
         setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
 
         const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
-        setResult({ url, name: outName });
-        if (url) {
+        // Large files skip the automatic download: Safari turns a late
+        // scripted click on a multi-GB file into a page crash, while a real
+        // click on the button below downloads it cleanly.
+        const auto = !!url && (msg.blob?.size ?? 0) < AUTO_DOWNLOAD_MAX_BYTES;
+        setResult({ url, name: outName, auto });
+        if (auto) {
           // Start the download right away so the file lands in Downloads.
           const a = document.createElement("a");
           a.href = url;
@@ -1254,16 +1261,26 @@ function Workstation() {
 
                 {result.url ? (
                   <>
+                    {result.auto ? (
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       {t("The download started automatically.", "Der Download wurde automatisch gestartet.")}
                     </p>
+                    ) : (
                     <a
+                      href={result.url}
+                      download={result.name}
+                      className="mt-2 inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background"
+                    >
+                      <Download className="size-3.5" /> {t(`Download file (${fmtBytes(bytesWritten)})`, `Datei herunterladen (${fmtBytes(bytesWritten)})`)}
+                    </a>
+                    )}
+                    {result.auto && <a
                       href={result.url}
                       download={result.name}
                       className="mt-2 flex items-start gap-2 break-all font-mono text-[11px] underline"
                     >
                       <Download className="mt-0.5 size-3 shrink-0" /> <span className="min-w-0">{t("Save again", "Erneut speichern")}: {result.name}</span>
-                    </a>
+                    </a>}
                   </>
                 ) : (
                   <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
