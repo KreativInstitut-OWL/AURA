@@ -50,10 +50,15 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   // Output sink
   let writable: FileSystemWritableFileStream | null = null;
   const blobParts: BlobPart[] = [];
+  // Without a save handle (Safari), stream into a temporary file in the
+  // browser's private disk storage instead of RAM, so 7OA renders don't run
+  // the tab out of memory. Falls back to in-memory parts if unavailable.
+  let opfs: OpfsSink | null = null;
   let closed = false;
   try {
   const scan = req.scanOnly === true;
   if (req.handle && !scan) writable = await req.handle.createWritable();
+  else if (!scan) opfs = await openOpfsSink();
   const header = buildAmbixHeader({
     channels: M,
     sampleRate: container.sampleRate,
@@ -66,6 +71,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
     // Peak scans measure only; nothing is written or buffered.
     if (scan) return;
     if (writable) await writable.write(chunk);
+    else if (opfs) opfs.write(chunk);
     else blobParts.push(new Uint8Array(chunk).buffer);
     bytesWritten += chunk.byteLength;
   };
@@ -253,12 +259,15 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
 
   if (gate.cancelled) return;
   if (writable) await writable.close();
+  let outBlob: Blob | null = null;
+  if (opfs) outBlob = await opfs.finish();
+  else if (!writable && !scan) outBlob = new Blob(blobParts, { type: "audio/wav" });
   closed = true;
   const envCopy = new Float32Array(envelope);
   post(
     {
       type: "done",
-      blob: writable || scan ? null : new Blob(blobParts, { type: "application/octet-stream" }),
+      blob: outBlob,
       bytesWritten,
       elapsedMs: performance.now() - started - pausedMs,
       maxPeak,
@@ -276,6 +285,48 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   } finally {
     // Discard the unfinished direct-to-disk transaction rather than leave a partial WAV.
     if (writable && !closed) await writable.abort();
+    if (opfs && !closed) await opfs.discard();
+  }
+}
+
+const OPFS_NAME = "aura-render-tmp.wav";
+interface OpfsSink {
+  write(chunk: Uint8Array): void;
+  finish(): Promise<Blob>;
+  discard(): Promise<void>;
+}
+
+async function openOpfsSink(): Promise<OpfsSink | null> {
+  try {
+    const root = await navigator.storage.getDirectory();
+    // Replace the previous render's temp file (kept until now so its download link worked).
+    await root.removeEntry(OPFS_NAME).catch(() => {});
+    const fh = await root.getFileHandle(OPFS_NAME, { create: true });
+    const access = await (fh as FileSystemFileHandle & {
+      createSyncAccessHandle(): Promise<{
+        write(b: Uint8Array, o: { at: number }): number;
+        flush(): void;
+        close(): void;
+      }>;
+    }).createSyncAccessHandle();
+    let at = 0;
+    return {
+      write(chunk) {
+        at += access.write(chunk, { at });
+      },
+      async finish() {
+        access.flush();
+        access.close();
+        // Disk-backed File: the download reads from storage, not RAM.
+        return await fh.getFile();
+      },
+      async discard() {
+        try { access.close(); } catch { /* already closed */ }
+        await root.removeEntry(OPFS_NAME).catch(() => {});
+      },
+    };
+  } catch {
+    return null;
   }
 }
 
