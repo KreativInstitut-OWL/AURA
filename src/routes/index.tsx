@@ -391,37 +391,6 @@ function Workstation() {
 
   // Crash flight recorder: steps survive a Safari tab kill in localStorage.
   const [crashDiag, setCrashDiag] = useState<string | null>(null);
-  // DRAFT ONLY — 5 s Safari storage self-test.
-  const [selfTest, setSelfTest] = useState<{ running: boolean; log: string[]; ok?: boolean } | null>(null);
-  const runSelfTest = useCallback(() => {
-    try { localStorage.removeItem(DIAG_KEY); } catch { /* ignore */ }
-    setCrashDiag(null);
-    const log: string[] = [];
-    const add = (l: string) => { diagStep(l); log.push(l); setSelfTest({ running: true, log: [...log] }); };
-    add("test: started");
-    const w = new Worker(new URL("../engine/storage-test.worker.ts", import.meta.url), { type: "module" });
-    w.onmessage = (e) => {
-      const m = e.data;
-      if (m.type === "diag") return add(m.step);
-      w.terminate();
-      if (m.type === "error") { add(`test: ERROR ${m.message}`); setSelfTest({ running: false, ok: false, log: [...log] }); return; }
-      try {
-        add("main: file received, createObjectURL...");
-        const url = URL.createObjectURL(m.file);
-        add("main: createObjectURL OK");
-        URL.revokeObjectURL(url);
-        add(`main: PASSED (${m.opfs ? "disk" : "RAM"})`);
-        setSelfTest({ running: false, ok: true, log: [...log] });
-      } catch (err) {
-        add(`main: createObjectURL FAILED ${String(err)}`);
-        setSelfTest({ running: false, ok: false, log: [...log] });
-      }
-      try { localStorage.removeItem(DIAG_KEY); } catch { /* ignore */ }
-      navigator.storage?.getDirectory?.().then((r) => r.removeEntry("aura-selftest.bin")).catch(() => {});
-    };
-    w.onerror = (e) => { add(`test: worker error ${e.message}`); setSelfTest({ running: false, ok: false, log: [...log] }); };
-    w.postMessage({});
-  }, []);
   useEffect(() => {
     const v = localStorage.getItem(DIAG_KEY);
     if (v) setCrashDiag(`${navigator.userAgent}\n${v}`);
@@ -835,30 +804,6 @@ function Workstation() {
             </span>
           </div>
 
-          {/* DRAFT ONLY — remove before merging */}
-          <span className="rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
-            DRAFT BUILD {BUILD_TIME}
-          </span>
-          <button
-            type="button"
-            disabled={selfTest?.running}
-            onClick={runSelfTest}
-            className="rounded-full border border-dashed border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
-          >
-            {selfTest?.running ? t("Storage test running…", "Speichertest läuft…") : t("Run Safari storage test (2.5 GB)", "Safari-Speichertest (2,5 GB)")}
-          </button>
-          {selfTest && !selfTest.running && (
-            <div className={`w-full rounded-lg border p-3 font-mono text-[11px] ${selfTest.ok ? "border-[var(--v2-valid)] text-foreground" : "border-destructive bg-destructive/10 text-destructive"}`}>
-              <div className="mb-1 flex items-center justify-between font-sans font-semibold">
-                <span>{selfTest.ok ? t("Storage test passed", "Speichertest bestanden") : t("Storage test failed", "Speichertest fehlgeschlagen")}</span>
-                <span className="flex gap-3">
-                  <button type="button" className="underline" onClick={() => navigator.clipboard?.writeText(`${navigator.userAgent}\n${selfTest.log.join("\n")}`)}>{t("Copy", "Kopieren")}</button>
-                  <button type="button" className="underline" onClick={() => setSelfTest(null)}>{t("Close", "Schließen")}</button>
-                </span>
-              </div>
-              <pre className="whitespace-pre-wrap">{selfTest.log.join("\n")}</pre>
-            </div>
-          )}
           {crashDiag && (
             <div className="w-full rounded-lg border border-destructive bg-destructive/10 p-3 font-mono text-[11px] text-destructive">
               <div className="mb-1 flex items-center justify-between font-sans font-semibold">
@@ -1489,6 +1434,7 @@ function Workstation() {
           </p>
         </div>
         <div aria-hidden="true" className="hidden xl:block" />
+        <p className="font-mono text-[10px] text-muted-foreground/70 xl:col-span-3 xl:text-center">Build {BUILD_TIME}</p>
       </footer>
       <PrivacyDialog open={privacy.open} onOpenChange={privacy.setOpen} />
     </div>
