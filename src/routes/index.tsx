@@ -583,6 +583,9 @@ function Workstation() {
     setResult(null);
     setFramesDone(0);
     setBytesWritten(0);
+    diagClear();
+    setCrashDiag(null);
+    diagStep(`main: render started, ${(file.size / 1e9).toFixed(2)} GB input`);
 
     setClip(null);
     setPausedClip(null);
@@ -718,6 +721,7 @@ function Workstation() {
         worker.terminate();
         workerRef.current = null;
       } else {
+        diagClear();
         setError(msg.message);
         setRendering(false);
         setStopping(false);
