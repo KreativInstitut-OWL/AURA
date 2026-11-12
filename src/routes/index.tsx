@@ -54,11 +54,11 @@ import type {
 import { COMMON_CHANNELS, COMMON_PACKS } from "@/engine/common-definitions";
 
 
-/** The 24 channels of ITU-R BS.2094 pack AP_00010009 (22.2, System H), ordered by layer. */
-const ITU_22_2_ROWS = (() => {
+/** The 14 channels of ITU-R BS.2094 pack AP_00010008 (13.1, System G), ordered by layer. */
+const ITU_13_1_ROWS = (() => {
   const layer = (label: string) =>
     label.startsWith("T") ? 0 : label.startsWith("U") ? 1 : label.startsWith("M") ? 2 : label.startsWith("B") ? 3 : 4;
-  return (COMMON_PACKS["AP_00010009"]?.channels ?? [])
+  return (COMMON_PACKS["AP_00010008"]?.channels ?? [])
     .map((id) => COMMON_CHANNELS[id]!)
     .filter(Boolean)
     .sort((a, b) => layer(a.label) - layer(b.label) || Math.abs(a.azimuth) - Math.abs(b.azimuth) || b.azimuth - a.azimuth);
@@ -980,21 +980,21 @@ function Workstation() {
 
 
 {profile === "itu" ? (
-          <Panel title={t("22.2 bed reference (ITU-R BS.2051)", "22.2-Bed-Referenz (ITU-R BS.2051)")} icon={<Layers className="size-3.5" />}>
+          <Panel title={t("13.1 bed reference (ITU-R BS.2051)", "13.1-Bed-Referenz (ITU-R BS.2051)")} icon={<Layers className="size-3.5" />}>
             <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
               {t(
-                "In ITU-R BS.2051, a bed can scale up to 22.2 (System H) — these 24 speaker positions across three layers. Dynamic objects and custom layouts are placed from their own coordinates. Explicit coordinates in the file always override this table.",
-                "In ITU-R BS.2051 umfasst ein maximales Bed bis zu 22.2 (System H) — diese 24 Lautsprecherpositionen über drei Ebenen. Dynamische Objekte und individuelle Layouts werden nach ihren eigenen Koordinaten platziert. Explizite Koordinaten in der Datei überschreiben stets diese Tabelle.",
+                "In ITU-R BS.2051, the largest bed with a single LFE is 13.1 (System G) — these 14 speaker positions across two layers. Dynamic objects and custom layouts are placed from their own coordinates. Explicit coordinates in the file always override this table.",
+                "In ITU-R BS.2051 ist 13.1 (System G) das größte Bed mit einem LFE — diese 14 Lautsprecherpositionen über zwei Ebenen. Dynamische Objekte und individuelle Layouts werden nach ihren eigenen Koordinaten platziert. Explizite Koordinaten in der Datei überschreiben stets diese Tabelle.",
               )}
             </p>
             <div className="overflow-x-auto">
               <table className="w-full font-mono text-[10px]">
                 <tbody>
-                  {ITU_22_2_ROWS.map((c) => (
+                  {ITU_13_1_ROWS.map((c) => (
                     <tr key={c.id} className="border-b border-border/60 last:border-0">
                       <td className="py-1 pr-2 text-foreground">{c.label}</td>
                       <td className="py-1 text-right text-muted-foreground">
-                        {c.azimuth}° / {c.elevation}°
+                        {c.label === "LFE" ? "omni → W" : `${c.azimuth}° / ${c.elevation}°`}
                       </td>
                     </tr>
                   ))}

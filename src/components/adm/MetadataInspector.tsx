@@ -115,16 +115,16 @@ export function MetadataInspector({
 }) {
   const { t } = useLang();
   const [open, setOpen] = useState(true);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
   const { container, diagnostics } = analysis;
 
-  /** the stream map lives in the same table: sources are keyed by 1-based track */
-  const sourceByTrack = useMemo(
-    () => new Map(analysis.sources.map((s) => [s.channelIndex + 1, s])),
+  /** sources keyed by UID — several objects can share one physical track */
+  const sourceByUid = useMemo(
+    () => new Map(analysis.sources.map((s) => [s.uid, s])),
     [analysis.sources],
   );
 
@@ -210,13 +210,13 @@ export function MetadataInspector({
                 </thead>
                 <tbody>
                   {diagnostics.map((d) => {
-                    const s = sourceByTrack.get(d.trackIndex);
+                    const s = sourceByUid.get(d.uid);
                     const detail = s?.isLFE ? lfeDetail(lfeRouting, s, t) : d.detail;
                     return (
-                      <Fragment key={d.trackIndex}>
+                      <Fragment key={d.uid}>
                         <tr
                           onClick={() =>
-                            setExpanded((v) => (v === d.trackIndex ? null : d.trackIndex))
+                            setExpanded((v) => (v === d.uid ? null : d.uid))
                           }
                           className="cursor-pointer border-t border-border hover:bg-secondary/60"
                         >
@@ -264,12 +264,12 @@ export function MetadataInspector({
                             <div className="flex items-center gap-1">
                               <span className="min-w-0 truncate" title={detail}>{detail}</span>
                               <ChevronDown
-                                className={`size-3 shrink-0 transition-transform ${expanded === d.trackIndex ? "rotate-180" : ""}`}
+                                className={`size-3 shrink-0 transition-transform ${expanded === d.uid ? "rotate-180" : ""}`}
                               />
                             </div>
                           </td>
                         </tr>
-                        {expanded === d.trackIndex && (
+                        {expanded === d.uid && (
                           <tr className="border-t border-border bg-secondary/30">
                             <td colSpan={6} aria-hidden="true" />
                             <td className="max-w-0 p-2 pr-3">
