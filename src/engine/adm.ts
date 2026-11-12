@@ -3,8 +3,7 @@ import {
   commonChannel,
   commonPack,
   isCommonId,
-  type CommonChannel,
-} from "./common-definitions";
+  type CommonChannel, isBinauralId, BINAURAL_CHANNELS } from "./common-definitions";
 import { cartesianToPolar, deg2rad, roomCartesianToPolar } from "./sh";
 import type {
   AnalysisResult,
@@ -604,6 +603,24 @@ export function analyseAdm(
     const displayName =
       uidToObjectName.get(entry.uid) ?? cf?.name ?? common?.name ?? `Track ${entry.trackIndex}`;
 
+    // Binaural headphone feeds (BS.2094 typeDefinition 0005) are recognised but never spatialised.
+    if (cfId && !cf && isBinauralId(cfId)) {
+      const bin = Object.values(BINAURAL_CHANNELS).find(
+        (b) => b.id.toLowerCase() === cfId!.trim().toLowerCase(),
+      );
+      steps.push({ label: "binaural definition", value: bin ? `${bin.id} ${bin.name}` : cfId, ok: true });
+      diagnostics.push({
+        trackIndex: entry.trackIndex,
+        uid: entry.uid,
+        status: "skipped",
+        guessed: false,
+        name: displayName,
+        detail: "Binaural headphone feed — not rendered into Ambisonics",
+        steps,
+      });
+      continue;
+    }
+
     if (cfId && !cf && !common) {
       steps.push({ label: "definition", value: `${cfId} unknown`, ok: false });
     } else if (common) {
@@ -673,6 +690,8 @@ export function analyseAdm(
           `Track ${entry.trackIndex} (${entry.uid}) cites unknown catalogue number ${cfId} — not in the ITU common definitions. Skipped.`,
         );
         fail(`Unknown catalogue number ${cfId}.`);
+      } else if (/^AT_/i.test(cfId) && !/^AT_0001/i.test(cfId) || /dolby\s*e\b/i.test(displayName)) {
+        fail("Encoded data stream (e.g. Dolby E) or non-spatial track — not rendered");
       } else {
         fail(`Channel definition ${cfId} is not present in the file.`);
       }

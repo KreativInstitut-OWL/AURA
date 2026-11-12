@@ -39,6 +39,7 @@ function Tag({
 
 function statusLabel(d: TrackDiagnostic, t: (en: string, de: string) => string = (en) => en) {
   if (d.status === "unresolved") return t("unresolved", "ungelöst");
+  if (d.status === "skipped") return t("skipped", "übersprungen");
   const base = d.status === "object" ? t("object", "Objekt") : d.status;
   if (d.guessed) return `${base} (${t("guess", "geschätzt")})`;
   return base;
@@ -133,8 +134,9 @@ export function MetadataInspector({
     const beds = diagnostics.filter((d) => d.status === "bed").length;
     const objects = diagnostics.filter((d) => d.status === "object").length;
     const unresolved = diagnostics.filter((d) => d.status === "unresolved").length;
+    const skipped = diagnostics.filter((d) => d.status === "skipped").length;
     const guessed = diagnostics.filter((d) => d.guessed).length;
-    return { total: diagnostics.length, beds, objects, unresolved, guessed };
+    return { total: diagnostics.length, beds, objects, unresolved, skipped, guessed };
   }, [diagnostics]);
 
   const elementCounts = useMemo(() => {
@@ -181,6 +183,7 @@ export function MetadataInspector({
           <span className={counts.unresolved ? "text-destructive" : ""}>
             {counts.unresolved} {t("unresolved", "ungelöst")}
           </span>
+          {counts.skipped > 0 && <span> · {counts.skipped} {t("skipped", "übersprungen")}</span>}
           {counts.guessed > 0 && <span className="text-accent"> · {counts.guessed} {t("guessed", "geschätzt")}</span>}
         </span>
       </button>
@@ -223,12 +226,14 @@ export function MetadataInspector({
                             <div className="flex flex-wrap items-center gap-1">
                               {d.status === "unresolved" ? (
                                 <Tag tone="destructive">{t("unresolved", "ungelöst")}</Tag>
+                              ) : d.status === "skipped" ? (
+                                <Tag tone="muted">{t("skipped", "übersprungen")}</Tag>
                               ) : (
                                 <Tag tone={s?.isLFE ? "lfe" : s?.kind === "bed" ? "bed" : s?.kind === "object" ? "obj" : "muted"}>
                                   {s?.isLFE ? "LFE" : s?.kind === "bed" ? "Bed" : s?.kind === "object" ? t("Object", "Objekt") : "—"}
                                 </Tag>
                               )}
-                              {d.guessed && d.status !== "unresolved" && (
+                              {d.guessed && d.status !== "unresolved" && d.status !== "skipped" && (
                                 <Tag tone="muted">{t("guess", "geschätzt")}</Tag>
                               )}
                             </div>

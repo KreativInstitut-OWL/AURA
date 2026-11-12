@@ -65,7 +65,7 @@ export interface ResolutionStep {
   ok: boolean;
 }
 
-export type TrackStatus = "bed" | "object" | "unresolved";
+export type TrackStatus = "bed" | "object" | "unresolved" | "skipped";
 
 export interface TrackDiagnostic {
   trackIndex: number; // 1-based

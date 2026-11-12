@@ -92,6 +92,16 @@ function lookup<T>(table: Record<string, T>, id: string | null | undefined): T |
   return undefined;
 }
 
+/** ITU-R BS.2094 binaural channels (typeDefinition 0005) — headphone feeds, never spatialised. */
+export const BINAURAL_CHANNELS: Record<string, { id: string; name: string }> = {
+  AC_00050001: { id: "AC_00050001", name: "BinauralLeft" },
+  AC_00050002: { id: "AC_00050002", name: "BinauralRight" },
+};
+
+/** True for any binaural channel format ID (AC_0005xxxx). */
+export const isBinauralId = (id: string | null | undefined) =>
+  !!id && /^AC_0005[0-9a-fA-F]{4}$/.test(id.trim());
+
 export const commonChannel = (id: string | null | undefined) => lookup(COMMON_CHANNELS, id);
 export const commonPack = (id: string | null | undefined) => lookup(COMMON_PACKS, id);
 
