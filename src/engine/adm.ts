@@ -6,6 +6,7 @@ import {
   type CommonChannel, isBinauralId, BINAURAL_CHANNELS } from "./common-definitions";
 import { cartesianToPolar, deg2rad, roomCartesianToPolar } from "./sh";
 import type {
+  AdmProgramme,
   AnalysisResult,
   BedProfile,
   ContainerInfo,
@@ -274,6 +275,71 @@ function allByLocalName(root: Document | Element, localName: string): Element[] 
   return Array.from(root.getElementsByTagName("*")).filter((n) => n.localName === localName);
 }
 
+/**
+ * Resolves audioProgramme -> audioContent -> audioObject (incl. nested objects)
+ * -> audioTrackUID -> chna track, giving the 0-based tracks of each programme.
+ */
+export function resolveProgrammes(doc: Document, container: ContainerInfo): AdmProgramme[] {
+  const refs = (el: Element, name: string) =>
+    children(el, name).map((r) => text(r)).filter((r): r is string => !!r);
+  const contents = new Map<string, string[]>();
+  for (const c of allByLocalName(doc, "audioContent")) {
+    const id = c.getAttribute("audioContentID");
+    if (id) contents.set(id, refs(c, "audioObjectIDRef"));
+  }
+  const objects = new Map<string, { objs: string[]; uids: string[] }>();
+  for (const o of allByLocalName(doc, "audioObject")) {
+    const id = o.getAttribute("audioObjectID");
+    if (id) objects.set(id, { objs: refs(o, "audioObjectIDRef"), uids: refs(o, "audioTrackUIDRef") });
+  }
+  const uidToTracks = new Map<string, number[]>();
+  for (const e of container.chna) {
+    const ch = e.trackIndex - 1;
+    if (ch < 0 || ch >= container.format.channels) continue;
+    const list = uidToTracks.get(e.uid) ?? [];
+    list.push(ch);
+    uidToTracks.set(e.uid, list);
+  }
+  return allByLocalName(doc, "audioProgramme").map((p, i) => {
+    const tracks = new Set<number>();
+    const seen = new Set<string>();
+    const walk = (objId: string) => {
+      if (seen.has(objId)) return;
+      seen.add(objId);
+      const o = objects.get(objId);
+      if (!o) return;
+      for (const u of o.uids) for (const t of uidToTracks.get(u) ?? []) tracks.add(t);
+      o.objs.forEach(walk);
+    };
+    for (const cId of refs(p, "audioContentIDRef")) (contents.get(cId) ?? []).forEach(walk);
+    const id = p.getAttribute("audioProgrammeID") ?? `APR_${i + 1}`;
+    return {
+      id,
+      name: p.getAttribute("audioProgrammeName") ?? id,
+      language: p.getAttribute("audioProgrammeLanguage") || null,
+      trackIndices: [...tracks].sort((a, b) => a - b),
+    };
+  });
+}
+
+/** Tracks muted by a programme choice; empty unless the file offers 2+ programmes. */
+export function mutedTracks(programmes: AdmProgramme[], selectedId: string | null): Set<number> {
+  if (programmes.length <= 1) return new Set();
+  const sel = programmes.find((p) => p.id === selectedId) ?? programmes[0]!;
+  const keep = new Set(sel.trackIndices);
+  const muted = new Set<number>();
+  for (const p of programmes) for (const t of p.trackIndices) if (!keep.has(t)) muted.add(t);
+  return muted;
+}
+
+/** Filename tag for the chosen programme; empty for single-programme files. */
+export function programmeFileTag(programmes: AdmProgramme[], selectedId: string | null): string {
+  if (programmes.length <= 1) return "";
+  const sel = programmes.find((p) => p.id === selectedId) ?? programmes[0]!;
+  const clean = sel.name.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return clean ? `_${clean}` : "";
+}
+
 interface ChannelFormatModel {
   id: string;
   name: string;
@@ -378,6 +444,7 @@ export function analyseAdm(
   const sources: RenderSource[] = [];
   const diagnostics: TrackDiagnostic[] = [];
   let programmeName: string | null = null;
+  let programmes: AdmProgramme[] = [];
 
   // A proprietary 'dbmd' chunk is ignored by design — not worth a warning.
 
@@ -428,7 +495,7 @@ export function analyseAdm(
         steps: [{ label: "metadata", value: "none", ok: false }],
       });
     }
-    return { container, sources, warnings, programmeName, diagnostics };
+    return { container, sources, warnings, programmeName, programmes, diagnostics };
 
   }
 
@@ -438,6 +505,7 @@ export function analyseAdm(
   }
 
   programmeName = allByLocalName(doc, "audioProgramme")[0]?.getAttribute("audioProgrammeName") ?? null;
+  programmes = resolveProgrammes(doc, container);
 
   // audioChannelFormat index
   const channelFormats = new Map<string, ChannelFormatModel>();
@@ -846,7 +914,7 @@ export function analyseAdm(
   }
   sources.sort((a, b) => a.channelIndex - b.channelIndex);
   diagnostics.sort((a, b) => a.trackIndex - b.trackIndex);
-  return { container, sources, warnings, programmeName, diagnostics };
+  return { container, sources, warnings, programmeName, programmes, diagnostics };
 }
 
 /** Position of an object at a given sample, with keyframe interpolation. */

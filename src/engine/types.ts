@@ -78,11 +78,21 @@ export interface TrackDiagnostic {
   steps: ResolutionStep[];
 }
 
+export interface AdmProgramme {
+  id: string;
+  name: string;
+  language: string | null;
+  /** 0-based WAV track indices referenced by this programme */
+  trackIndices: number[];
+}
+
 export interface AnalysisResult {
   container: ContainerInfo;
   sources: RenderSource[];
   warnings: string[];
   programmeName: string | null;
+  /** every audioProgramme in the file; selection UI only appears when there are 2+ */
+  programmes: AdmProgramme[];
   diagnostics: TrackDiagnostic[];
 }
 

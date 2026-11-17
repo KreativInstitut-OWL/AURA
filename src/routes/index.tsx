@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription } from "@/components/ui/alert-dialog";
 import { CLIPPING_HEADROOM_DB, suggestedMasterGain } from "@/engine/clipping";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { analyseAdm, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine/adm";
+import { analyseAdm, mutedTracks, programmeFileTag, BED_ORDER, BED_PROFILES, defaultChannelMap } from "@/engine/adm";
 import { parseContainer } from "@/engine/container";
 import { channelCount } from "@/engine/sh";
 
@@ -47,6 +47,7 @@ import type {
   LevelState,
   LfeGain,
   LfeRouting,
+  RenderSource,
 
   WorkerRequest,
   WorkerResponse,
@@ -264,6 +265,17 @@ function Workstation() {
   const [profile, setProfile] = useState<BedProfile>("dolby");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysing, setAnalysing] = useState(false);
+  /** chosen audioProgramme; only meaningful when the file has 2+ programmes */
+  const [programmeId, setProgrammeId] = useState<string | null>(null);
+  const muted = useMemo(
+    () => mutedTracks(analysis?.programmes ?? [], programmeId),
+    [analysis, programmeId],
+  );
+  /** sources of the selected programme; identical to analysis.sources for single-programme files */
+  const activeSources = useMemo<RenderSource[]>(
+    () => (!analysis ? [] : muted.size === 0 ? analysis.sources : analysis.sources.filter((s) => !muted.has(s.channelIndex))),
+    [analysis, muted],
+  );
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -417,6 +429,7 @@ function Workstation() {
       setStopping(false);
       setError(null);
       setAnalysis(null);
+      setProgrammeId(null);
       setContainer(null);
       setResult(null);
       setChannelMap(null);
@@ -524,14 +537,14 @@ function Workstation() {
     if (!lv.envelope) return;
     // Encode a 500 ms window (±250 ms) around each used channel's loudest moment.
     const used = new Set(
-      analysis.sources
+      activeSources
         .filter((s) => !(s.isLFE && lfeRouting === "off") && s.channelIndex >= 0)
         .map((s) => s.channelIndex),
     );
     // LFE channels pick their loudest moment *after* the 120 Hz low-pass,
     // otherwise speech or bleed on the LFE track wins and the sub peak is missed.
     const lfeChannels = new Set(
-      analysis.sources.filter((s) => s.isLFE && lfeRouting !== "off" && s.channelIndex >= 0).map((s) => s.channelIndex),
+      activeSources.filter((s) => s.isLFE && lfeRouting !== "off" && s.channelIndex >= 0).map((s) => s.channelIndex),
     );
     const windows = peakWindows(
       lv.envelope, lv.bins, lv.binSamples, used,
@@ -561,7 +574,7 @@ function Workstation() {
     const req: WorkerRequest = {
       type: "render",
       file,
-      sources: analysis.sources,
+      sources: activeSources,
       container: {
         dataOffset: analysis.container.dataOffset,
         frameCount: analysis.container.frameCount,
@@ -578,7 +591,7 @@ function Workstation() {
       windows,
     };
     worker.postMessage(req);
-  }, [analysis, file, lfeRouting, lfeGain]);
+  }, [analysis, activeSources, file, lfeRouting, lfeGain]);
 
   const cancelPeakScan = () => {
     scanWorkerRef.current?.terminate();
@@ -604,7 +617,7 @@ function Workstation() {
     setStopping(false);
 
     const baseName = file.name.replace(/\.[^.]+$/, "");
-    const hasLfe = analysis.sources.some((s) => s.isLFE);
+    const hasLfe = activeSources.some((s) => s.isLFE);
     const routeTag =
       lfeRouting === "omni" ? "omni" : lfeRouting === "down" ? "down" : "pos";
     const levelTag = lfeGain === "minus3" ? "-3dB" : lfeGain === "unity" ? "0dB" : "+10dB";
@@ -616,7 +629,8 @@ function Workstation() {
         : `_gain${gainDb > 0 ? "+" : "-"}${Math.abs(gainDb).toFixed(1).replace(/\.0$/, "")}dB`;
     // Dolby is the default geometry, so only ITU renders carry a profile tag.
     const profileTag = profile === "itu" ? "_ITU" : "";
-    const outName = `${baseName}_AmbiX_${order}OA${lfeTag}${gainTag}${profileTag}_AURA.wav`;
+    const progTag = programmeFileTag(analysis.programmes, programmeId);
+    const outName = `${baseName}${progTag}_AmbiX_${order}OA${lfeTag}${gainTag}${profileTag}_AURA.wav`;
 
 
     let handle: FileSystemFileHandle | null = null;
@@ -749,7 +763,7 @@ function Workstation() {
     const req: WorkerRequest = {
       type: "render",
       file,
-      sources: analysis.sources,
+      sources: activeSources,
       container: {
         dataOffset: analysis.container.dataOffset,
         frameCount: analysis.container.frameCount,
@@ -763,7 +777,7 @@ function Workstation() {
       handle,
     };
     worker.postMessage(req);
-  }, [analysis, file, gainDb, lfeRouting, lfeGain, order, outChannels, profile]);
+  }, [analysis, activeSources, programmeId, file, gainDb, lfeRouting, lfeGain, order, outChannels, profile]);
 
 
   const stopRender = () => {
@@ -786,10 +800,10 @@ function Workstation() {
   const pct = total > 0 ? (framesDone / total) * 100 : 0;
   const speed = elapsed > 0 ? framesDone / (elapsed / 1000) : 0;
   const eta = speed > 0 ? (total - framesDone) / speed : NaN;
-  const beds = useMemo(() => analysis?.sources.filter((s) => s.kind === "bed") ?? [], [analysis]);
+  const beds = useMemo(() => activeSources.filter((s) => s.kind === "bed"), [activeSources]);
   const objects = useMemo(
-    () => analysis?.sources.filter((s) => s.kind === "object") ?? [],
-    [analysis],
+    () => activeSources.filter((s) => s.kind === "object"),
+    [activeSources],
   );
 
   return (
@@ -957,8 +971,37 @@ function Workstation() {
                 />
                 <Row k={t("Duration", "Dauer")} v={fmtTime(analysis.container.durationSec)} />
                 <Row k="Streams" v={`${beds.length} Bed · ${objects.length} ${t("objects", "Objekte")}`} />
-                {analysis.programmeName && <Row k={t("Programme", "Programm")} v={analysis.programmeName} />}
+                {analysis.programmeName && analysis.programmes.length <= 1 && (
+                  <Row k={t("Programme", "Programm")} v={analysis.programmeName} />
+                )}
               </dl>
+            )}
+            {analysis && analysis.programmes.length > 1 && (
+              <div className="mt-3">
+                <p className="mb-1.5 font-mono text-[11px] text-muted-foreground">
+                  {t("Programme", "Programm")} · {analysis.programmes.length} {t("versions in this file", "Fassungen in dieser Datei")}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.programmes.map((p, i) => {
+                    const active = (programmeId ?? analysis.programmes[0]!.id) === p.id;
+                    return (
+                      <button
+                        key={`${p.id}-${i}`}
+                        onClick={() => { setProgrammeId(p.id); setGroupPeaks(null); }}
+                        disabled={rendering}
+                        className={`rounded-full border px-3 py-1 text-[11px] transition-colors disabled:opacity-40 ${
+                          active ? "border-foreground bg-foreground font-semibold text-background" : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {p.name}{p.language ? ` (${p.language})` : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {t("Only the selected version is rendered; tracks of the other versions are muted.", "Nur die gewählte Fassung wird gerendert; Spuren der anderen Fassungen sind stummgeschaltet.")}
+                </p>
+              </div>
             )}
           </Panel>
 
@@ -1066,7 +1109,7 @@ function Workstation() {
             {analysis ? (
               <>
                 <SpatialViewer
-                  sources={analysis.sources}
+                  sources={activeSources}
                   frameCount={analysis.container.frameCount}
                   sampleRate={analysis.container.format.sampleRate}
                   playheadSample={playhead}
@@ -1098,7 +1141,7 @@ function Workstation() {
             <Meters peaks={peaks} channels={outChannels} />
           </Panel>
 
-          {analysis && <MetadataInspector analysis={analysis} lfeRouting={lfeRouting} />}
+          {analysis && <MetadataInspector analysis={analysis} lfeRouting={lfeRouting} muted={muted} />}
           {!analysis && (
             <Panel title={t("Track & Source Inspector", "Spur- & Quell-Inspektor")}>
               <Empty label={t("Chunk map, reference chains and raw axml appear here after loading.", "Chunk-Übersicht, Referenzketten und rohes axml erscheinen hier nach dem Laden.")} />

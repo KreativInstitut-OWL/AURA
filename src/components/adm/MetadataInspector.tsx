@@ -109,9 +109,12 @@ function lfeDetail(
 export function MetadataInspector({
   analysis,
   lfeRouting = "omni",
+  muted,
 }: {
   analysis: AnalysisResult;
   lfeRouting?: LfeRouting;
+  /** 0-based tracks muted by the programme choice */
+  muted?: Set<number>;
 }) {
   const { t } = useLang();
   const [open, setOpen] = useState(true);
@@ -218,13 +221,15 @@ export function MetadataInspector({
                           onClick={() =>
                             setExpanded((v) => (v === d.uid ? null : d.uid))
                           }
-                          className="cursor-pointer border-t border-border hover:bg-secondary/60"
+                          className={`cursor-pointer border-t border-border hover:bg-secondary/60 ${muted?.has(d.trackIndex - 1) ? "opacity-50" : ""}`}
                         >
                           <td className="p-2">{String(d.trackIndex).padStart(2, "0")}</td>
                           <td className="p-2">{d.name}</td>
                           <td className="p-2">
                             <div className="flex flex-wrap items-center gap-1">
-                              {d.status === "unresolved" ? (
+                              {muted?.has(d.trackIndex - 1) ? (
+                                <Tag tone="muted">{t("muted · other programme", "stumm · andere Fassung")}</Tag>
+                              ) : d.status === "unresolved" ? (
                                 <Tag tone="destructive">{t("unresolved", "ungelöst")}</Tag>
                               ) : d.status === "skipped" ? (
                                 <Tag tone="muted">{t("skipped", "übersprungen")}</Tag>

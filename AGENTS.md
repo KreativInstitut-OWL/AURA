@@ -20,3 +20,4 @@
 - Gain recommendations use the shared clipping helper so paused and completed renders apply the same safety margin and rounding.
 - The peak pre-scan always encodes at 7th order and reports one peak per order tier (ACN 0–15, 16–35, 36–63), so switching order never needs a rescan; the render inner loops decode each channel once per block and accumulate per ACN channel for speed.
 - The background level scan also records a 120 Hz low-passed envelope per channel; the peak estimate places LFE windows on that one, because speech or bleed on an LFE track is removed by the LFE filter and would otherwise hide the real sub peak.
+- Multi-programme ADM files: the app filters `analysis.sources` through the selected programme's muted-track set (`mutedTracks` in src/engine/adm.ts) before render, viewer, meters and peak scan; with <=1 programme the set is empty so behaviour is unchanged — one filter point keeps every consumer consistent.
