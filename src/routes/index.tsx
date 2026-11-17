@@ -529,7 +529,7 @@ function Workstation() {
     scanWorkerRef.current?.terminate();
     scanWorkerRef.current = null;
     setPreScan(null);
-  }, [analysis, lfeRouting, lfeGain]);
+  }, [analysis, lfeRouting, lfeGain, programmeId]);
 
   const startPeakScan = useCallback(() => {
     if (!analysis || !file || scanWorkerRef.current) return;
@@ -709,11 +709,23 @@ function Workstation() {
         // Full envelope comes back from the render for free.
         levelsRef.current.live = null;
         if (msg.envelope) {
+          // Merge only channels this render actually metered; the render skips
+          // muted programme tracks, so replacing the scan would zero them out.
+          const prev = levelsRef.current;
+          const merged =
+            prev.envelope && prev.bins === msg.envelopeBins && prev.binSamples === msg.binSamples
+              ? new Float32Array(prev.envelope)
+              : new Float32Array(msg.envelope.length);
+          const bins = msg.envelopeBins;
+          for (const ci of new Set(activeSources.map((s) => s.channelIndex))) {
+            if (ci < 0) continue;
+            merged.set(msg.envelope.subarray(ci * bins, (ci + 1) * bins), ci * bins);
+          }
           levelsRef.current = {
             channels: levelsRef.current.channels,
             binSamples: msg.binSamples,
             bins: msg.envelopeBins,
-            envelope: msg.envelope,
+            envelope: merged,
             // Keep the low-passed scan: the render envelope is unfiltered.
             low: levelsRef.current.low ?? null,
             live: null,
@@ -936,7 +948,7 @@ function Workstation() {
               <label className="mt-3 inline-block">
                 <input
                   type="file"
-                  accept=".wav,.bwf,.rf64,audio/wav"
+                  accept=".wav,.wave,.bwf,.rf64,.bw64,audio/wav,audio/x-wav,audio/vnd.wave"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];

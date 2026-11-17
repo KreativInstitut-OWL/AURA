@@ -111,7 +111,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
   const groupPeaks = new Float32Array(3);
 
   // Peak estimates encode only the requested windows; renders cover the whole file.
-  const ranges: [number, number][] = scan && req.windows ? req.windows : [[0, totalFrames]];
+  const ranges: [number, number][] = scan && req.windows && req.windows.length > 0 ? req.windows : [[0, totalFrames]];
   for (const [rangeStart, rangeEnd] of ranges) {
   frame = rangeStart;
   while (frame < rangeEnd) {
