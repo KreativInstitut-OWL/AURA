@@ -110,8 +110,11 @@ export function MetadataInspector({
   analysis,
   lfeRouting = "omni",
   muted,
+  header,
 }: {
   analysis: AnalysisResult;
+  /** shown under the title even when collapsed (e.g. the programme picker) */
+  header?: React.ReactNode;
   lfeRouting?: LfeRouting;
   /** 0-based tracks muted by the programme choice */
   muted?: Set<number>;
@@ -190,6 +193,8 @@ export function MetadataInspector({
           {counts.guessed > 0 && <span className="text-accent"> · {counts.guessed} {t("guessed", "geschätzt")}</span>}
         </span>
       </button>
+
+      {header && <div className="mt-3">{header}</div>}
 
       {open && (
         <div className="mt-4 space-y-5">

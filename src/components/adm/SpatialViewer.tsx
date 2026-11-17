@@ -1,7 +1,7 @@
 import { useLang } from "@/lib/i18n";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-import { positionAt } from "@/engine/adm";
+import { activeAt, positionAt } from "@/engine/adm";
 import type { LevelState, LfeRouting, RenderSource } from "@/engine/types";
 
 interface Props {
@@ -261,15 +261,21 @@ export function SpatialViewer({
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         const steps = 160;
+        // Only the object's own lifetime is drawn as a path.
+        const tA = Math.max(0, s.activeStart ?? 0);
+        const tB = Math.min(Math.max(total, 1), s.activeEnd ?? Math.max(total, 1));
         for (let k = 0; k <= steps; k++) {
-          const t = (k / steps) * Math.max(total, 1);
+          const t = tA + (k / steps) * Math.max(tB - tA, 0);
           const pos = positionAt(s.points, t);
           const p = project(pos.azimuth, pos.elevation, Math.min(pos.distance || 1, 1.2));
           if (k === 0) ctx.moveTo(p.sx, p.sy);
           else ctx.lineTo(p.sx, p.sy);
         }
         ctx.stroke();
+        ctx.globalAlpha = 1;
 
+        // Outside its audioObject window the object is silent: no marker, no label.
+        if (!activeAt(s, head)) return;
         const now = positionAt(s.points, head);
         const p = project(now.azimuth, now.elevation, Math.min(now.distance || 1, 1.2));
         const lv = levelOf(s.channelIndex);

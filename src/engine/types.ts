@@ -57,6 +57,9 @@ export interface RenderSource {
   gain: number;
   /** keyframes for objects */
   points: TrajectoryPoint[];
+  /** audible window in samples from the parent audioObject (start inclusive, end exclusive) */
+  activeStart?: number;
+  activeEnd?: number;
 }
 
 export interface ResolutionStep {

@@ -976,33 +976,6 @@ function Workstation() {
                 )}
               </dl>
             )}
-            {analysis && analysis.programmes.length > 1 && (
-              <div className="mt-3">
-                <p className="mb-1.5 font-mono text-[11px] text-muted-foreground">
-                  {t("Programme", "Programm")} · {analysis.programmes.length} {t("versions in this file", "Fassungen in dieser Datei")}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {analysis.programmes.map((p, i) => {
-                    const active = (programmeId ?? analysis.programmes[0]!.id) === p.id;
-                    return (
-                      <button
-                        key={`${p.id}-${i}`}
-                        onClick={() => { setProgrammeId(p.id); setGroupPeaks(null); }}
-                        disabled={rendering}
-                        className={`rounded-full border px-3 py-1 text-[11px] transition-colors disabled:opacity-40 ${
-                          active ? "border-foreground bg-foreground font-semibold text-background" : "border-border text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {p.name}{p.language ? ` (${p.language})` : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  {t("Only the selected version is rendered; tracks of the other versions are muted.", "Nur die gewählte Fassung wird gerendert; Spuren der anderen Fassungen sind stummgeschaltet.")}
-                </p>
-              </div>
-            )}
           </Panel>
 
           {needsChannelMap && channelMap && (
@@ -1141,7 +1114,42 @@ function Workstation() {
             <Meters peaks={peaks} channels={outChannels} />
           </Panel>
 
-          {analysis && <MetadataInspector analysis={analysis} lfeRouting={lfeRouting} muted={muted} />}
+          {analysis && (
+            <MetadataInspector
+              analysis={analysis}
+              lfeRouting={lfeRouting}
+              muted={muted}
+              header={
+                analysis.programmes.length > 1 ? (
+              <div>
+                <p className="mb-1.5 font-mono text-[11px] text-muted-foreground">
+                  {t("Programme", "Programm")} · {analysis.programmes.length} {t("versions in this file", "Fassungen in dieser Datei")}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {analysis.programmes.map((p, i) => {
+                    const active = (programmeId ?? analysis.programmes[0]!.id) === p.id;
+                    return (
+                      <button
+                        key={`${p.id}-${i}`}
+                        onClick={() => { setProgrammeId(p.id); setGroupPeaks(null); }}
+                        disabled={rendering}
+                        className={`rounded-full border px-3 py-1 text-[11px] transition-colors disabled:opacity-40 ${
+                          active ? "border-foreground bg-foreground font-semibold text-background" : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {p.name}{p.language ? ` (${p.language})` : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {t("Only the selected version is rendered; tracks of the other versions are muted.", "Nur die gewählte Fassung wird gerendert; Spuren der anderen Fassungen sind stummgeschaltet.")}
+                </p>
+              </div>
+                ) : undefined
+              }
+            />
+          )}
           {!analysis && (
             <Panel title={t("Track & Source Inspector", "Spur- & Quell-Inspektor")}>
               <Empty label={t("Chunk map, reference chains and raw axml appear here after loading.", "Chunk-Übersicht, Referenzketten und rohes axml erscheinen hier nach dem Laden.")} />

@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { positionAt } from "./adm";
+import { activeAt, positionAt } from "./adm";
 import { buildAmbixHeader, packInt24 } from "./ambix";
 import { decodeChannel } from "./decode-pcm";
 import { channelCount, encodeDirection } from "./sh";
@@ -185,8 +185,8 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
         const n = Math.min(RAMP, frames - sub);
         const p1 = positionAt(o.points, frame + sub + n);
         encodeDirection(config.order, p1.azimuth, p1.elevation, cB);
-        const g0 = p0.gain * config.masterGain;
-        const g1 = p1.gain * config.masterGain;
+        const g0 = p0.gain * config.masterGain * activeAt(o, frame + sub);
+        const g1 = p1.gain * config.masterGain * activeAt(o, frame + sub + n - 1);
         let silent = true;
         for (let f = 0; f < n; f++) {
           const v = x[sub + f]! * (g0 + (g1 - g0) * (f / n));

@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { positionAt } from "./adm";
+import { activeAt, positionAt } from "./adm";
 import { channelCount, encodeDirection } from "./sh";
 import type { PreviewRequest, PreviewResponse } from "./preview-types";
 import { LFE_GAIN_VALUE, type RenderSource } from "./types";
@@ -135,8 +135,8 @@ async function renderPreview(req: PreviewRequest) {
         const p1 = positionAt(o.points, t0 + n);
         encodeDirection(req.order, p0.azimuth, p0.elevation, cA);
         encodeDirection(req.order, p1.azimuth, p1.elevation, cB);
-        const g0 = p0.gain * req.masterGain;
-        const g1 = p1.gain * req.masterGain;
+        const g0 = p0.gain * req.masterGain * activeAt(o, t0);
+        const g1 = p1.gain * req.masterGain * activeAt(o, t0 + n - 1);
         for (let f = 0; f < n; f++) {
           const t = f / n;
           const s = decode(raw, (sub + f) * container.blockAlign + chOff) * (g0 + (g1 - g0) * t);

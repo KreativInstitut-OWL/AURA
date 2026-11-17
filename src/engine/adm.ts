@@ -584,6 +584,21 @@ export function analyseAdm(
     }
   }
 
+  // audioObject start/duration (BS.2076 §5.4): block rtimes are relative to the
+  // object start, and the object is silent outside [start, start + duration).
+  const uidToObjectTime = new Map<string, { start: number; end: number }>();
+  for (const ao of allByLocalName(doc, "audioObject")) {
+    const st = ao.getAttribute("start");
+    const du = ao.getAttribute("duration");
+    if (!st && !du) continue;
+    const start = admTimeToSamples(st, sampleRate);
+    const end = du ? start + admTimeToSamples(du, sampleRate) : Number.POSITIVE_INFINITY;
+    for (const ref of children(ao, "audioTrackUIDRef")) {
+      const uid = text(ref);
+      if (uid) uidToObjectTime.set(uid, { start, end });
+    }
+  }
+
   // Position of each track inside its pack, used only for the labelled fallback.
   const packSeen = new Map<string, number>();
   const packPosition = new Map<string, number>();
@@ -849,8 +864,9 @@ export function analyseAdm(
 
     // Object: build the keyframe trajectory
     const points: TrajectoryPoint[] = [];
+    const objTime = uidToObjectTime.get(entry.uid);
     for (const b of cf.blocks) {
-      const start = admTimeToSamples(b.rtime, sampleRate);
+      const start = (objTime?.start ?? 0) + admTimeToSamples(b.rtime, sampleRate);
       const dur = b.duration ? admTimeToSamples(b.duration, sampleRate) : 0;
       points.push({
         start,
@@ -884,6 +900,7 @@ export function analyseAdm(
       elevation: points[0]!.elevation,
       gain: 1,
       points,
+      ...(objTime ? { activeStart: objTime.start, activeEnd: objTime.end } : {}),
     });
     diagnostics.push({
       trackIndex: entry.trackIndex,
@@ -891,7 +908,11 @@ export function analyseAdm(
       status: "object",
       guessed,
       name: displayName,
-      detail: `${points.length} keyframe${points.length === 1 ? "" : "s"}`,
+      detail:
+        `${points.length} keyframe${points.length === 1 ? "" : "s"}` +
+        (objTime
+          ? ` · active ${(objTime.start / sampleRate).toFixed(2)}–${Number.isFinite(objTime.end) ? (objTime.end / sampleRate).toFixed(2) : "end"} s`
+          : ""),
       steps,
     });
   }
@@ -915,6 +936,13 @@ export function analyseAdm(
   sources.sort((a, b) => a.channelIndex - b.channelIndex);
   diagnostics.sort((a, b) => a.trackIndex - b.trackIndex);
   return { container, sources, warnings, programmeName, programmes, diagnostics };
+}
+
+/** 1 inside the parent audioObject's time window, 0 outside; sources without a window are always active. */
+export function activeAt(s: { activeStart?: number; activeEnd?: number }, sample: number): number {
+  if (s.activeStart != null && sample < s.activeStart) return 0;
+  if (s.activeEnd != null && sample >= s.activeEnd) return 0;
+  return 1;
 }
 
 /** Position of an object at a given sample, with keyframe interpolation. */
