@@ -67,8 +67,8 @@ export function SpatialViewer({
 
     // Plain hex per theme: UI tokens are oklch greys in dark mode and render grey on canvas.
     const PALETTE = {
-      light: { bed: "#0284c7", obj: "#f59e0b", wire: "#94a3b8", label: "#64748b" },
-      dark: { bed: "#38bdf8", obj: "#fbbf24", wire: "#64748b", label: "#94a3b8" },
+      light: { bed: "#1F8A00", obj: "#000000", wire: "#A3A3A3", label: "#737373" },
+      dark: { bed: "#54FC26", obj: "#FFFFFF", wire: "#525252", label: "#A3A3A3" },
     };
 
     const draw = () => {
