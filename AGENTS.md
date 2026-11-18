@@ -22,3 +22,4 @@
 - The background level scan also records a 120 Hz low-passed envelope per channel; the peak estimate places LFE windows on that one, because speech or bleed on an LFE track is removed by the LFE filter and would otherwise hide the real sub peak.
 - Multi-programme ADM files: the app filters `analysis.sources` through the selected programme's muted-track set (`mutedTracks` in src/engine/adm.ts) before render, viewer, meters and peak scan; with <=1 programme the set is empty so behaviour is unchanged — one filter point keeps every consumer consistent.
 - Object timing: an object's audioObject start/duration bounds when it is audible (block rtimes are relative to that start); outside the window its gain is 0 in render, preview and viewer — ITU-R BS.2076 time-multiplexes many objects on one track.
+- Bump `version` in package.json with every user-facing release (and add a CHANGELOG entry) — keeps package metadata honest for the public repo.

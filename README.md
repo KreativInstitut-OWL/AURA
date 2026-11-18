@@ -2,6 +2,8 @@
 
 > **Immersive audio engineers get their Atmos and ADM mixes as faithful Ambisonics masters.**
 
+**Try it live:** [aura.kreativ.institute](https://aura.kreativ.institute)
+
 AURA is a free, open-source workstation that runs entirely in your web browser. It reads ADM broadcast-wave masters (ITU-R BS.2076) — including Dolby Atmos ADM BWF exports — and renders them directly into Higher-Order Ambisonics (AmbiX: ACN channel order, SN3D normalisation) at 3rd, 5th or 7th order.
 
 Your audio never leaves your computer: there is no upload, no server-side processing and no tracking.
