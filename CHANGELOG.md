@@ -10,7 +10,7 @@ Cosmetic release: KreativInstitut.OWL corporate design. No audio or rendering ch
 - 3D Spatial Viewer and Inspector badges recoloured: objects in KIO green (#54FC26 dark / darker green light), beds black/white, LFE as a grey outline — dashed for omni/lower hemisphere, solid when positioned (viewer and inspector alike).
 - Lower-hemisphere LFE arrow drawn solid; "W − Z" removed from the viewer caption.
 - Light-mode borders use grey #EEEDED.
-- Object paths viewer: light-mode background #EEEDED, so objects use the full KIO green #54FC26 in both modes.
+- Object paths viewer: light-mode background #EEEDED; objects use soft neon #38D415 in light mode and KIO green #54FC26 in dark mode.
 - "100% Offline" badge uses the KIO greens.
 - Header shows the new AURA wordmark logo (black in light mode, green/white in dark mode), 150% larger, with the tagline underneath in the KIO font (T-StarTW).
 - Header controls (offline badge, language, mode, theme) aligned with the logo at a uniform height.
