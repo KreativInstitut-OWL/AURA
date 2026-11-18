@@ -2,19 +2,22 @@
 
 All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 
-## [0.9.0] — 2026-11-17 (current release)
+## [0.9.0] — 2026-11-17 – 2026-11-18 (current release)
 
 ### Added
 - NGA multi-programme selection: all `audioProgramme`s are resolved to their tracks; a picker in the Track & Source Inspector selects one version; other versions are muted in render, viewer, meters and peak estimate. Single-programme files are unchanged.
 - Programme name in the export filename, only for files with more than one programme.
 - Time-multiplexed objects: `audioObject` start/duration now bounds when an object is audible; the inspector shows the active time range.
 - File picker accepts `.wave` and `.bw64`; save dialog offers `.wave`, `.bw64`, `.rf64`.
+- Live deployment link (`https://aura.kreativ.institute`) in the README.
 
 ### Fixed
 - Peak estimate showed −∞ dBFS after switching programmes.
 - Empty peak-scan window lists no longer trigger a zero-length scan.
 
 ### Changed
+- Package metadata aligned (`aura-renderer` 0.9.0).
+- Roadmap refreshed: binaural headphone audition is the open milestone.
 - Build tooling dependency updated.
 
 ## [0.8.0] — 2026-11-12
