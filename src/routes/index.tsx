@@ -837,10 +837,10 @@ function Workstation() {
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
         <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-          <div className="flex items-center gap-2">
-            <img src={auraLogoBlack} alt="AURA" className="h-7 w-auto dark:hidden" />
-            <img src={auraLogoWhite} alt="AURA" className="hidden h-7 w-auto dark:block" />
-            <span className="font-kio hidden text-[12px] text-muted-foreground sm:inline">
+          <div className="flex flex-col items-start gap-1">
+            <img src={auraLogoBlack} alt="AURA" className="h-[42px] w-auto dark:hidden" />
+            <img src={auraLogoWhite} alt="AURA" className="hidden h-[42px] w-auto dark:block" />
+            <span className="font-kio hidden text-[11px] tracking-[0.02em] text-muted-foreground sm:block">
               ADM Universal Renderer into Ambisonics
             </span>
           </div>
