@@ -1,75 +1,73 @@
 # AURA — ADM Universal Renderer into Ambisonics
 
-> **Goal:** Immersive audio engineers get their Atmos and ADM mixes as faithful Ambisonics masters.
+> **Immersive audio engineers get their Atmos and ADM mixes as faithful Ambisonics masters.**
 
-Original build prompt: ADM-to-Ambisonics Renderer (Web App)
+AURA is a free, open-source workstation that runs entirely in your web browser. It reads ADM broadcast-wave masters (ITU-R BS.2076) — including Dolby Atmos ADM BWF exports — and renders them directly into Higher-Order Ambisonics (AmbiX: ACN channel order, SN3D normalisation) at 3rd, 5th or 7th order.
 
-Goal:
-Render Dolby Atmos ADM content directly into Ambisonics with object-level spatial precision. No intermediate loudspeaker-gain stage: every source (fixed 7.1.2 bed or time-varying object) gets Ambisonics coefficients computed directly from its position into Higher-Order Ambisonics (order 3/5/7 selectable: 16/36/64 channel output) using ACN channel ordering and SN3D normalization. Avoid the phantom-source blur and comb filtering caused by routing through virtual loudspeakers.
+Your audio never leaves your computer: there is no upload, no server-side processing and no tracking.
 
-Implementation specifications:
-- Pure client-side web app (no server/DB for audio processing).
-- Input: BWF / RF64 Dolby Atmos ADM master files.
-- Binary parsing: Parse RIFF/RF64 containers with ds64 chunk support for multi-gigabyte masters. Parse chna chunk for track UID allocations. Parse axml chunk (ITU-R BS.2076) using DOMParser to identify DirectSpeakers (7.1.2 bed) vs Objects. Ignore proprietary dbmd chunk. Do NOT use decodeAudioData() (it cannot handle >32 channels or RF64); unpack 24-bit PCM directly from raw ArrayBuffers.
-- Bed handling: Capped at 7.1.2 (L, R, C, LFE, Lss, Rss, Lrs, Rrs, Ltm, Rtm). Precompute static spherical harmonic coefficients. LFE is low-pass filtered (~120 Hz) and injected into 0th order (channel 0, W) with -3 dB gain or optional bypass.
-- Object handling: Continuous azimuth/elevation/distance or Cartesian coordinates from audioBlockFormat with linear/spherical trajectory interpolation between keyframes. Sub-block coefficient ramping (e.g. 64-sample intervals) to guarantee click-free rendering without evaluating transcendental functions per sample.
-- Spherical Harmonics Math (ACN / SN3D):
-  - ACN indexing: k = n*(n + 1) + m, where n = floor(sqrt(k)) and m = k - n*(n + 1).
-  - SN3D normalization: S_n^m = sqrt((2 - delta_{m,0}) * (n - |m|)! / (n + |m|)!), where S_n^0 = 1 and S_n^m = sqrt(2*(n-|m|)!/(n+|m|)!) for m != 0.
-  - CRITICAL: Omit the quantum-mechanical Condon-Shortley phase (-1)^m (per AmbiX, RFC 8486, and BS.2076).
-  - First-order verification: ACN 0 (W=1.0), ACN 1 (Y=sin(phi)*cos(delta)), ACN 2 (Z=sin(delta)), ACN 3 (X=cos(phi)*cos(delta)).
-- Architecture: Pure TypeScript audio processing engine running in dedicated Web Workers.
-- Memory & Streaming: Stream multi-gigabyte audio using File.slice() in ~2048-sample blocks. Stream output AmbiX RF64 directly to disk via the File System Access API (FileSystemWritableFileStream) with fallback to chunked download, maintaining RAM < 150 MB.
-- Export format: Standard AmbiX WAV/RF64 with WAVE_FORMAT_EXTENSIBLE, ACN channel sequence, and SN3D normalization.
-- UI: File dropzone with container analysis, interactive 3D spatial trajectory viewer showing bed anchors and animated object paths, order selector (3rd / 5th / 7th), channel level meters, and streaming render progress bar.
+---
 
-Reference the attached architecture and build plan document for full mathematical definitions and pipeline details.
+## Why AURA?
 
-## License
+The usual route from an object-based mix to Ambisonics renders to a virtual loudspeaker layout (e.g. 7.1.4) and then re-encodes those speakers into Ambisonics. That detour adds phantom-source blur and comb filtering.
 
-Released under the [MIT License](./LICENSE) — © Sascha Armin Etezazi, KreativInstitut.OWL. Third-party trademarks (e.g. Dolby) belong to their owners; used here only for nominative-fair-use compatibility descriptions.
+AURA skips the loudspeaker stage. Every bed channel and every moving object is encoded straight from its own position into spherical-harmonic coefficients, block by block, with smooth coefficient ramps between metadata keyframes.
 
+## Features
 
-This project was built with [Lovable](https://lovable.dev).
+- **Direct HOA encoding** — 3OA (16 ch), 5OA (36 ch) or 7OA (64 ch); ACN / SN3D without Condon–Shortley phase.
+- **Two spatial interpretations**
+  - **Dolby mode** — places beds and objects using Dolby room coordinates (continuous room warp, 7.1.2 bed).
+  - **ITU mode** — pure geometry and spherical projection per ITU-R BS.2076 / BS.2051.
+  - Explicit coordinates in the file always take precedence over nominal speaker angles.
+- **Multi-programme (NGA) files** — files with several `audioProgramme`s (e.g. language versions) get a programme picker; other versions are muted and the programme name is added to the export filename. Single-programme files are unaffected.
+- **Time-multiplexed objects** — objects sharing one physical track are only audible inside their own `start`/`duration` window.
+- **LFE handling** — 120 Hz 4th-order Butterworth low-pass; routes *Omni*, *Lower hemisphere*, *Position* or *Off*; separate gain (−3 / 0 / +10 dB).
+- **Peak estimate and clipping safety** — fast pre-scan suggests a safe master gain; rendering pauses on clipping so you can cancel or continue. No hidden limiter.
+- **3D trajectory viewer** — bed anchors, animated object paths and level-driven markers.
+- **Track & Source Inspector** — shows how each track was resolved (bed, object, skipped, unresolved) plus a copyable diagnostics report.
+- **Channel mapping for plain multichannel WAVs** — assumed default order per channel count, fully editable.
+- **Large files** — streams multi-gigabyte RF64/BW64 masters in small blocks and writes output straight to disk where the browser allows it.
+- **English and German UI**, light and dark theme.
 
-## Build with Lovable
+## Supported formats
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/6a1b91db-51d4-4071-beac-f4ccb149d933).
+| | |
+|---|---|
+| **Input containers** | RIFF/BWF, RF64, BW64 (`.wav`, `.wave`, `.bwf`, `.bw64`) |
+| **Input samples** | 16/24/32-bit integer PCM, 32-bit IEEE float |
+| **Metadata** | `axml` + `chna` (ITU-R BS.2076 / BS.2094 common definitions) |
+| **Output** | AmbiX WAV / RF64, `WAVE_FORMAT_EXTENSIBLE`, 24-bit with TPDF dither |
+| **Sample rate** | Always identical to the input (48 or 96 kHz) — never resampled |
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+Encoded data streams (e.g. Dolby E) and binaural headphone feeds are detected and skipped.
 
-## Development
+## Export filename
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+```
+<name>[_<Programme>][_ITU][_<gain>]_AmbiX_<3|5|7>OA[_<LFE route/gain>]_AURA.wav
+```
+
+Optional parts only appear when they apply.
+
+## Browser support
+
+Current Chrome, Edge, Firefox and Safari. Chromium-based browsers can write directly to a chosen file; other browsers stage the result in private browser storage before download.
+
+## Running locally
+
+Requires [Bun](https://bun.sh) (or Node.js 20+ with npm).
 
 ```sh
 git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+cd <repository-folder>
+bun install
+bun run dev        # http://localhost:8080
+bunx vitest run    # test suite
 ```
 
-## Deploy with Coolify (Railpack)
-
-This is a TanStack Start app with a Nitro server, not a static Vite SPA.
-The production output is `.output`, not `dist`.
-
-- Select the **Railpack** build pack and leave the application in server mode
-  (not static-site mode).
-- `railpack.json` selects `bun run build:coolify`, which builds Nitro with the
-  `node-server` preset. Leave any custom build-command override empty, or set it
-  to `bun run build:coolify`.
-- The `start` script runs `node .output/server/index.mjs` and tells Railpack to
-  deploy a server instead of serving `dist` with Caddy. Leave any custom
-  start-command override empty, or set it to `bun run start`.
-- Set the exposed application port to **3000** and the runtime variables
-  `PORT=3000` and `HOST=0.0.0.0`. If health checks are enabled, use `/`.
-- Remove any `RAILPACK_SPA_OUTPUT_DIR` override, which forces static-site
-  detection even when a start script exists.
-
-To verify the production server locally:
+### Self-hosting (Node server)
 
 ```sh
 bun install --frozen-lockfile
@@ -77,4 +75,31 @@ bun run build:coolify
 PORT=3000 HOST=0.0.0.0 bun run start
 ```
 
-The regular `build` script is unchanged, preserving Lovable's default build target.
+For Coolify/Railpack: use server mode (not static site), port 3000, and leave build/start overrides empty — `railpack.json` already selects the right commands.
+
+## Project structure
+
+```
+src/engine/   container parsing, ADM analysis, spherical harmonics, render workers
+src/components/adm/   viewer, meters, inspector, channel mapping
+src/routes/index.tsx  the workstation UI
+```
+
+## Known limitations
+
+- ITU mode is newer than Dolby mode and still being validated.
+- ADM distance is not used (sources are encoded as plane waves).
+- Screen-relative (MPEG-H style) metadata is not applied.
+- Channel order of plain WAV files without ADM metadata is ambiguous — check the mapping.
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md).
+
+## Credits & license
+
+Created by **Sascha Armin Etezazi**, KreativInstitut.OWL (Komposition & Sounddesign).
+
+Released under the [MIT License](./LICENSE).
+
+AURA is an independent tool. It is not affiliated with, sponsored by or endorsed by Dolby Laboratories. "Dolby" and "Dolby Atmos" are trademarks of Dolby Laboratories and are mentioned only to describe file compatibility.
