@@ -87,7 +87,6 @@ src/routes/index.tsx  the workstation UI
 
 ## Known limitations
 
-- ITU mode is newer than Dolby mode and still being validated.
 - ADM distance is not used (sources are encoded as plane waves).
 - Screen-relative (MPEG-H style) metadata is not applied.
 - Channel order of plain WAV files without ADM metadata is ambiguous — check the mapping.
@@ -98,7 +97,7 @@ See [CHANGELOG.md](./CHANGELOG.md).
 
 ## Credits & license
 
-Created by **Sascha Armin Etezazi**, KreativInstitut.OWL (Komposition & Sounddesign).
+Created by [**Sascha Armin Etezazi**](https://kreativ.institute/de/ueber-kio/team/sascha-etezazi), [KreativInstitut.OWL](https://kreativ.institute) (Komposition & Sounddesign).
 
 Released under the [MIT License](./LICENSE).
 

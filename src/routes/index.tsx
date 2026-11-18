@@ -1522,6 +1522,11 @@ function Workstation() {
         </div>
         <div className="min-w-0 space-y-2 text-center">
           <p className="mx-auto max-w-2xl text-foreground/80">
+            {t("A project by ", "Ein Projekt von ")}
+            <a href="https://kreativ.institute/de/ueber-kio/team/sascha-etezazi" target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 transition-colors hover:text-foreground">Sascha Armin Etezazi</a>
+            {" · KreativInstitut.OWL"}
+          </p>
+          <p className="mx-auto max-w-2xl text-foreground/80">
             <ShieldCheck className="mr-1.5 inline size-3.5 text-[var(--v2-valid)]" />
             {t(
               "Your audio files never leave your computer. All parsing, spatial math and Ambisonic encoding happen directly on your CPU inside this browser tab. No files are uploaded to any server.",
