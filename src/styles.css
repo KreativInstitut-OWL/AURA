@@ -234,3 +234,15 @@ body.dark:has(.v2-theme) {
     font-family: var(--font-mono);
   }
 }
+
+@font-face {
+  font-family: "T-StarTW";
+  src: url("./assets/fonts/T-StarTW-Medium.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@utility font-kio {
+  font-family: "T-StarTW", var(--font-sans-v2);
+}

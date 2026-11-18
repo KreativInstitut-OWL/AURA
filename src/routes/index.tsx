@@ -11,7 +11,6 @@ import {
   ArrowUpRight,
   Layers,
   Play,
-  Radio,
   ShieldCheck,
   Square,
   TriangleAlert,
@@ -20,6 +19,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import kioLight from "@/assets/kio_logo_light.webp";
 import kioDark from "@/assets/kio_logo_dark.png";
+import auraLogoBlack from "@/assets/aura_logo_black.svg";
+import auraLogoWhite from "@/assets/aura_logo_white.svg";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PrivacyDialog, usePrivacyDialog } from "@/components/PrivacyDialog";
 import { useLang } from "@/lib/i18n";
@@ -837,9 +838,9 @@ function Workstation() {
       <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
         <div className="flex flex-wrap items-center gap-3 px-5 py-3">
           <div className="flex items-center gap-2">
-            <Radio className="size-4 text-[var(--v2-valid)]" />
-            <span className="text-sm font-semibold tracking-tight">AURA</span>
-            <span className="hidden text-[11px] text-muted-foreground sm:inline">
+            <img src={auraLogoBlack} alt="AURA" className="h-7 w-auto dark:hidden" />
+            <img src={auraLogoWhite} alt="AURA" className="hidden h-7 w-auto dark:block" />
+            <span className="font-kio hidden text-[12px] text-muted-foreground sm:inline">
               ADM Universal Renderer into Ambisonics
             </span>
           </div>
@@ -859,7 +860,7 @@ function Workstation() {
               onClick={() => privacy.setOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
             >
-              <ShieldCheck className="size-3.5 text-[var(--v2-valid)]" />
+              <ShieldCheck className="size-3.5 text-[var(--spatial-obj)]" />
               {t("100% Offline", "100% offline")}
             </button>
             <ThemeToggle />

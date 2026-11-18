@@ -34,10 +34,10 @@ export function PrivacyDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="v2-theme max-w-md rounded-2xl">
-        <div className="flex size-10 items-center justify-center rounded-full bg-[var(--v2-valid)]/10">
-          <ShieldCheck className="size-5 text-[var(--v2-valid)]" />
+        <div className="flex size-10 items-center justify-center rounded-full bg-[var(--spatial-obj)]/10">
+          <ShieldCheck className="size-5 text-[var(--spatial-obj)]" />
         </div>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--v2-valid)]">100% Offline</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--spatial-obj)]">100% Offline</span>
         <DialogTitle className="text-lg tracking-tight">
           {t("Everything stays on your computer.", "Alles bleibt lokal auf deinem Rechner.")}
         </DialogTitle>
