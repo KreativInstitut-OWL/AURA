@@ -166,6 +166,7 @@
   --spatial-bed: #000000;
   --spatial-obj: #1F8A00;
   --spatial-lfe: #737373;
+  --viewer-bg: #EEEDED;
   background-color: var(--background);
   background-image: none;
   color: var(--foreground);
@@ -195,6 +196,7 @@
   --spatial-bed: #FFFFFF;
   --spatial-obj: #54FC26;
   --spatial-lfe: #A3A3A3;
+  --viewer-bg: color-mix(in oklab, var(--background) 40%, transparent);
 }
 
 :root {
