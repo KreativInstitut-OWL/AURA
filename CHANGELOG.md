@@ -2,7 +2,22 @@
 
 All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 
-## [0.9.0] — 2026-11-17 – 2026-11-18 (current release)
+## [0.9.1] — 2026-11-18 (current release)
+
+Cosmetic release: KreativInstitut.OWL corporate design. No audio or rendering changes.
+
+### Changed
+- 3D Spatial Viewer and Inspector badges recoloured: objects in KIO green (#54FC26 dark / darker green light), beds black/white, LFE as a dashed grey outline.
+- Light-mode borders use grey #EEEDED.
+- "100% Offline" badge uses the KIO greens.
+- Header shows the new AURA wordmark logo (black in light mode, green/white in dark mode), 150% larger, with the tagline underneath in the KIO font (T-StarTW).
+- Header controls (offline badge, language, mode, theme) aligned with the logo at a uniform height.
+- Author credit moved below the privacy note in the footer.
+
+### Added
+- Theme-aware favicon with the AURA mark (black in light mode, green in dark mode).
+
+## [0.9.0] — 2026-11-17 – 2026-11-18
 
 ### Added
 - NGA multi-programme selection: all `audioProgramme`s are resolved to their tracks; a picker in the Track & Source Inspector selects one version; other versions are muted in render, viewer, meters and peak estimate. Single-programme files are unchanged.
