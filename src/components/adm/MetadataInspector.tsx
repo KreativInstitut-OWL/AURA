@@ -27,7 +27,7 @@ function Tag({
   className,
 }: {
   tone: keyof typeof TAG_TONES;
-  className?: string;
+  className?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
