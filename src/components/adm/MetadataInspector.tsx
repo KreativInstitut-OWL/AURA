@@ -18,7 +18,7 @@ const TAG_TONES = {
   muted: "border-border text-muted-foreground",
   bed: "border-[var(--spatial-bed)]/50 bg-[var(--spatial-bed)]/10 text-[var(--spatial-bed)]",
   obj: "border-[var(--spatial-obj)]/50 bg-[var(--spatial-obj)]/10 text-[var(--spatial-obj)]",
-  lfe: "border-[var(--spatial-lfe)]/50 bg-[var(--spatial-lfe)]/10 text-[var(--spatial-lfe)]",
+  lfe: "border-dashed border-[var(--spatial-lfe)]/70 bg-[var(--spatial-lfe)]/10 text-[var(--spatial-lfe)]",
 } as const;
 
 function Tag({
