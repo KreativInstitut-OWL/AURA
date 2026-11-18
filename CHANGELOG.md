@@ -7,7 +7,8 @@ All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 Cosmetic release: KreativInstitut.OWL corporate design. No audio or rendering changes.
 
 ### Changed
-- 3D Spatial Viewer and Inspector badges recoloured: objects in KIO green (#54FC26 dark / darker green light), beds black/white, LFE as a dashed grey outline.
+- 3D Spatial Viewer and Inspector badges recoloured: objects in KIO green (#54FC26 dark / darker green light), beds black/white, LFE as a grey outline — dashed for omni/lower hemisphere, solid when positioned (viewer and inspector alike).
+- Lower-hemisphere LFE arrow drawn solid; "W − Z" removed from the viewer caption.
 - Light-mode borders use grey #EEEDED.
 - "100% Offline" badge uses the KIO greens.
 - Header shows the new AURA wordmark logo (black in light mode, green/white in dark mode), 150% larger, with the tagline underneath in the KIO font (T-StarTW).

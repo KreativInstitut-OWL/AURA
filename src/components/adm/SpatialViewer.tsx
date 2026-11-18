@@ -223,6 +223,7 @@ export function SpatialViewer({
           ctx.beginPath();
           ctx.arc(o.sx, o.sy, radius, 0, Math.PI * 2);
           ctx.stroke();
+          ctx.setLineDash([]);
           if (lfeMode === "down") {
             // short downward tail: energy is steered toward the floor
             ctx.beginPath();
@@ -239,7 +240,7 @@ export function SpatialViewer({
             lfeMode === "omni"
               ? `${l.name} · omni → W`
               : lfeMode === "down"
-                ? `${l.name} · ${langRef.current === "de" ? "untere Hemisphäre" : "lower hemisphere"} (W − Z)`
+                ? `${l.name} · ${langRef.current === "de" ? "untere Hemisphäre" : "lower hemisphere"}`
                 : lfeMode === "position"
                   ? `${l.name} · ${((l.azimuth * 180) / Math.PI).toFixed(0)}° / ${((l.elevation * 180) / Math.PI).toFixed(0)}°`
                   : `${l.name}`;

@@ -18,19 +18,21 @@ const TAG_TONES = {
   muted: "border-border text-muted-foreground",
   bed: "border-[var(--spatial-bed)]/50 bg-[var(--spatial-bed)]/10 text-[var(--spatial-bed)]",
   obj: "border-[var(--spatial-obj)]/50 bg-[var(--spatial-obj)]/10 text-[var(--spatial-obj)]",
-  lfe: "border-dashed border-[var(--spatial-lfe)]/70 bg-[var(--spatial-lfe)]/10 text-[var(--spatial-lfe)]",
+  lfe: "border-[var(--spatial-lfe)]/70 bg-[var(--spatial-lfe)]/10 text-[var(--spatial-lfe)]",
 } as const;
 
 function Tag({
   tone,
   children,
+  className,
 }: {
   tone: keyof typeof TAG_TONES;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
     <span
-      className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase ${TAG_TONES[tone]}`}
+      className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase ${TAG_TONES[tone]} ${className ?? ""}`}
     >
       {children}
     </span>
@@ -239,7 +241,7 @@ export function MetadataInspector({
                               ) : d.status === "skipped" ? (
                                 <Tag tone="muted">{t("skipped", "übersprungen")}</Tag>
                               ) : (
-                                <Tag tone={s?.isLFE ? "lfe" : s?.kind === "bed" ? "bed" : s?.kind === "object" ? "obj" : "muted"}>
+                                <Tag className={s?.isLFE && lfeRouting !== "position" ? "border-dashed" : undefined} tone={s?.isLFE ? "lfe" : s?.kind === "bed" ? "bed" : s?.kind === "object" ? "obj" : "muted"}>
                                   {s?.isLFE ? "LFE" : s?.kind === "bed" ? "Bed" : s?.kind === "object" ? t("Object", "Objekt") : "—"}
                                 </Tag>
                               )}
