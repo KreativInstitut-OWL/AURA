@@ -44,9 +44,9 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       onClick={toggle}
       aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       title={mode === "dark" ? "Light mode" : "Dark mode"}
-      className={`inline-flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground ${className}`}
+      className={`inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground ${className}`}
     >
-      {mode === "dark" ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+      {mode === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
   );
 }

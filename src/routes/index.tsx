@@ -836,10 +836,12 @@ function Workstation() {
       )}
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-1 px-5 py-3">
           <div className="flex flex-col items-start gap-1">
-            <img src={auraLogoBlack} alt="AURA" className="h-[42px] w-auto dark:hidden" />
-            <img src={auraLogoWhite} alt="AURA" className="hidden h-[42px] w-auto dark:block" />
+            <div className="flex h-[42px] items-center">
+              <img src={auraLogoBlack} alt="AURA" className="h-[42px] w-auto dark:hidden" />
+              <img src={auraLogoWhite} alt="AURA" className="hidden h-[42px] w-auto dark:block" />
+            </div>
             <span className="font-kio hidden text-[11px] tracking-[0.02em] text-muted-foreground sm:block">
               ADM Universal Renderer into Ambisonics
             </span>
@@ -854,22 +856,22 @@ function Workstation() {
               <pre className="whitespace-pre-wrap">{crashDiag}</pre>
             </div>
           )}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex h-[42px] items-center gap-2">
             <button
               type="button"
               onClick={() => privacy.setOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               <ShieldCheck className="size-3.5 text-[var(--spatial-obj)]" />
               {t("100% Offline", "100% offline")}
             </button>
             <ThemeToggle />
-            <div className="inline-flex rounded-full border border-border p-0.5">
+            <div className="inline-flex h-9 items-center rounded-full border border-border p-1">
               {(["de", "en"] as const).map((l) => (
                 <button
                   key={l}
                   onClick={() => setLang(l)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] uppercase transition-colors ${
+                  className={`h-full rounded-full px-3 text-xs uppercase transition-colors ${
                     lang === l
                       ? "bg-foreground font-semibold text-background"
                       : "text-muted-foreground hover:text-foreground"
@@ -879,28 +881,28 @@ function Workstation() {
                 </button>
               ))}
             </div>
-            <div className="inline-flex rounded-full border border-border p-0.5">
+            <div className="inline-flex h-9 items-center rounded-full border border-border p-1">
               {(["dolby", "itu"] as BedProfile[]).map((p) => {
                 const active = profile === p;
                 const name = p === "dolby" ? t("Dolby mode", "Dolby-Modus") : t("ITU mode", "ITU-Modus");
                 return (
                   <div
                     key={p}
-                    className={`inline-flex items-center rounded-full transition-colors ${
+                    className={`inline-flex h-full items-center rounded-full transition-colors ${
                       active ? "bg-foreground text-background" : "text-muted-foreground"
                     } ${rendering ? "opacity-40" : ""}`}
                   >
                     <button
                       onClick={() => setProfile(p)}
                       disabled={rendering}
-                      className={`rounded-full py-1 pl-3 pr-1 text-[11px] ${active ? "font-semibold" : "hover:text-foreground"}`}
+                      className={`h-full rounded-full pl-3 pr-1.5 text-xs ${active ? "font-semibold" : "hover:text-foreground"}`}
                     >
                       {name}
                     </button>
                     <Popover>
                       <PopoverTrigger
                         aria-label={t(`About ${name}`, `Über ${name}`)}
-                        className={`mr-1 inline-flex size-4 items-center justify-center rounded-full ${
+                        className={`mr-1.5 inline-flex size-4 items-center justify-center rounded-full ${
                           active ? "opacity-80 hover:opacity-100" : "hover:text-foreground"
                         }`}
                       >
