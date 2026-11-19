@@ -16,7 +16,7 @@ export function Meters({ peaks, channels }: Props) {
         const over = db > -0.2;
         return (
           <div key={i} className="flex flex-col items-center gap-1">
-            <div className="relative h-20 w-full overflow-hidden rounded-sm bg-secondary">
+            <div className="relative h-20 w-full overflow-hidden rounded-sm bg-[var(--meter-bg)]">
               <div
                 className={`absolute bottom-0 left-0 w-full transition-[height] duration-75 ${
                   over ? "bg-destructive" : "bg-primary"

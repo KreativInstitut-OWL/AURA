@@ -167,6 +167,7 @@
   --spatial-obj: #1F8A00;
   --spatial-lfe: #737373;
   --viewer-bg: #EEEDED;
+  --meter-bg: #EEEDED;
   background-color: var(--background);
   background-image: none;
   color: var(--foreground);
@@ -197,6 +198,9 @@
   --spatial-obj: #54FC26;
   --spatial-lfe: #A3A3A3;
   --viewer-bg: color-mix(in oklab, var(--background) 40%, transparent);
+  /* Recessed meter wells: a solid, slightly lighter-than-card grey so empty
+     channels stay visible in dark mode (a transparent wash disappears here). */
+  --meter-bg: #2A2C30;
 }
 
 :root {
