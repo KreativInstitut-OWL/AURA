@@ -2,7 +2,16 @@
 
 All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 
-## [0.9.1] — 2026-11-18 (current release)
+## [0.9.2] — 2026-11-19 (current release)
+
+### Added
+- Crash notice can be dismissed ("Dismiss" / "Verwerfen"); it stays gone after reload.
+- Loading a new file clears an old crash notice.
+
+### Fixed
+- Copy on the crash notice now confirms with "Copied!" only after it worked, tries a fallback, and asks to copy manually if the browser blocks it.
+
+## [0.9.1] — 2026-11-18
 
 Cosmetic release: KreativInstitut.OWL corporate design. No audio or rendering changes.
 

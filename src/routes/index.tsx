@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { BUILD_TIME } from "@/lib/build-time";
 import {
   Activity,
+  Check,
+  Copy,
+  X,
   Boxes,
   CircleCheck,
   Download,
@@ -421,8 +424,59 @@ function Workstation() {
     if (v) setCrashDiag(`${navigator.userAgent}\n${v}`);
   }, []);
 
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const copyTimerRef = useRef<number | null>(null);
+  const clearCopyTimer = () => {
+    if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = null;
+  };
+  useEffect(() => clearCopyTimer, []);
+  const dismissCrashDiag = useCallback(() => {
+    diagClear();
+    setCrashDiag(null);
+    clearCopyTimer();
+    setCopyState("idle");
+  }, []);
+  const copyCrashDiag = useCallback(() => {
+    if (!crashDiag) return;
+    clearCopyTimer();
+    const text = crashDiag;
+    const fallback = (): boolean => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "-9999px";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand("copy");
+        ta.remove();
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+    const finish = (ok: boolean) => {
+      setCopyState(ok ? "copied" : "failed");
+      if (ok) copyTimerRef.current = window.setTimeout(() => { setCopyState("idle"); copyTimerRef.current = null; }, 2000);
+    };
+    // Called synchronously inside the click gesture; Safari may still refuse.
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => finish(true), () => finish(fallback()));
+    } else {
+      finish(fallback());
+    }
+  }, [crashDiag]);
+
   const loadFile = useCallback(
     async (f: File) => {
+      // A new file makes any old crash trace irrelevant; a later render records afresh.
+      diagClear();
+      setCrashDiag(null);
+      setCopyState("idle");
       // Always start clean: stop any render (running or paused on clipping).
       workerRef.current?.terminate();
       workerRef.current = null;
@@ -848,12 +902,26 @@ function Workstation() {
           </div>
 
           {crashDiag && (
-            <div className="w-full rounded-lg border border-destructive bg-destructive/10 p-3 font-mono text-[11px] text-destructive">
-              <div className="mb-1 flex items-center justify-between font-sans font-semibold">
+            <div role="alert" className="w-full rounded-lg border border-destructive bg-destructive/10 p-3 font-mono text-[11px] text-destructive">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2 font-sans font-semibold">
                 <span>{t("Previous render crashed. Last steps:", "Letzter Render ist abgestürzt. Letzte Schritte:")}</span>
-                <button type="button" className="underline" onClick={() => { navigator.clipboard?.writeText(crashDiag); }}>{t("Copy", "Kopieren")}</button>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={copyCrashDiag} className="inline-flex items-center gap-1 underline">
+                    {copyState === "copied" ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                    {copyState === "copied" ? t("Copied!", "Kopiert!") : t("Copy", "Kopieren")}
+                  </button>
+                  <button type="button" onClick={dismissCrashDiag} aria-label={t("Dismiss crash report", "Absturzbericht verwerfen")} className="inline-flex items-center gap-1 underline">
+                    <X className="size-3.5" />
+                    {t("Dismiss", "Verwerfen")}
+                  </button>
+                </div>
               </div>
-              <pre className="whitespace-pre-wrap">{crashDiag}</pre>
+              {copyState === "failed" && (
+                <p role="status" className="mb-1 font-sans">
+                  {t("Copying is blocked by this browser. Select the text below and copy it manually (⌘C / Ctrl+C).", "Kopieren wird von diesem Browser blockiert. Markiere den Text unten und kopiere ihn manuell (⌘C / Strg+C).")}
+                </p>
+              )}
+              <pre data-testid="crash-diag" className="select-text whitespace-pre-wrap">{crashDiag}</pre>
             </div>
           )}
           <div className="ml-auto flex h-[42px] items-center gap-2">
