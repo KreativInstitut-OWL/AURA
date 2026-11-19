@@ -73,6 +73,8 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
+const FAVICON_VERSION = 2;
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -92,9 +94,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", sizes: "any" },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      // Bump FAVICON_VERSION whenever the icon files in public/ change.
+      { rel: "icon", href: `/favicon.ico?v=${FAVICON_VERSION}`, sizes: "any" },
+      { rel: "icon", href: `/favicon.svg?v=${FAVICON_VERSION}`, type: "image/svg+xml" },
+      { rel: "mask-icon", href: `/favicon.svg?v=${FAVICON_VERSION}`, color: "#54fc26" },
+      { rel: "apple-touch-icon", href: `/apple-touch-icon.png?v=${FAVICON_VERSION}` },
     ],
   }),
   shellComponent: RootShell,

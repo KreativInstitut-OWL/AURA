@@ -17,7 +17,7 @@ Cosmetic release: KreativInstitut.OWL corporate design. No audio or rendering ch
 - Author credit moved below the privacy note in the footer.
 
 ### Added
-- Theme-aware favicon with the AURA mark (black in light mode, green in dark mode).
+- Theme-aware favicon with the AURA mark (black in light mode, green in dark mode), with Safari pinned-tab icon and versioned icon links so browsers drop cached old icons.
 - Safari and bookmark icons (favicon.ico, apple-touch-icon) with the AURA mark, replacing the old cached Lovable icon.
 
 ## [0.9.0] — 2026-11-17 – 2026-11-18
