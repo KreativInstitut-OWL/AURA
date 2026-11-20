@@ -96,3 +96,28 @@ test("one 7th-order scan reports a peak per order tier (ACN 0–15, 16–35, 36�
   expect(done.groupPeaks[2]!).toBeGreaterThan(0);
   expect(done.maxPeak).toBeCloseTo(Math.max(...done.groupPeaks), 6);
 });
+
+test("candidate-window scan progress is monotonic and completes its actual workload", async () => {
+  const messages: WorkerResponse[] = [];
+  const scope = (globalThis as unknown as { self: { onmessage: (e: MessageEvent<RenderWorkerMessage>) => void; postMessage: (m: WorkerResponse) => void } }).self;
+  scope.postMessage = (m) => messages.push(m);
+  const samples = new Float32Array(100000).fill(0.1);
+  scope.onmessage({ data: {
+    type: "render", file: new File([samples.buffer], "windows.wav"), handle: null, scanOnly: true,
+    windows: [[80000, 84000], [10000, 14000]],
+    sources: [{ channelIndex: 0, kind: "bed", name: "C", uid: "c", isLFE: false, azimuth: 0, elevation: 0, gain: 1, points: [] }],
+    container: { dataOffset: 0, frameCount: 100000, blockAlign: 4, bitsPerSample: 32, isFloat: true, channels: 1, sampleRate: 48000 },
+    config: { order: 3, lfeRouting: "off", lfeGain: "unity", masterGain: 1 },
+  } } as unknown as MessageEvent<RenderWorkerMessage>);
+  for (let n = 0; n < 200 && !messages.some((m) => m.type === "done"); n++) await new Promise((r) => setTimeout(r, 5));
+  const progress = messages.filter((m) => m.type === "progress");
+  expect(progress.length).toBeGreaterThan(0);
+  let previous = 0;
+  for (const m of progress) {
+    expect(m.totalFrames).toBe(8000);
+    expect(m.framesDone).toBeGreaterThanOrEqual(previous);
+    previous = m.framesDone;
+  }
+  expect(previous).toBe(8000);
+  expect(messages.some((m) => m.type === "done")).toBe(true);
+});

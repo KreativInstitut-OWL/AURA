@@ -24,3 +24,8 @@
 - Object timing: an object's audioObject start/duration bounds when it is audible (block rtimes are relative to that start); outside the window its gain is 0 in render, preview and viewer — ITU-R BS.2076 time-multiplexes many objects on one track.
 - Bump `version` in package.json with every user-facing release (and add a CHANGELOG entry) — keeps package metadata honest for the public repo.
 - The crash flight recorder (localStorage) is cleared only by a finished/failed render, an explicit Dismiss, or loading a new file — so a real tab kill stays visible until the user acts.
+- Output URLs have one owner and delayed retirement; a handoff grace period avoids revocation during asynchronous browser download acquisition.
+- Dormant preview requests explicitly carry isFloat and both audition workers use the shared PCM decoder; bit depth alone cannot identify IEEE float.
+- Programme muting receives the full input channel count; exclusivity must also exclude tracks outside every programme.
+- Peak scan progress reports completed candidate-window frames; render progress remains absolute file frames.
+- Optional browser persistence uses guarded access; unavailable storage must not interrupt the workstation.

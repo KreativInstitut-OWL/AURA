@@ -35,8 +35,8 @@ test("two-language file resolves each programme to its tracks", () => {
     ["DocumentaryEnglish", "en", [0, 2, 3]],
     ["DocumentaryGerman", "de", [1, 2, 3]],
   ]);
-  expect([...mutedTracks(r.programmes, "APR_1002")]).toEqual([0]);
-  expect([...mutedTracks(r.programmes, null)]).toEqual([1]);
+  expect([...mutedTracks(r.programmes, "APR_1002", 4)]).toEqual([0]);
+  expect([...mutedTracks(r.programmes, null, 4)]).toEqual([1]);
 });
 
 test("filename tag uses the sanitised programme name without stray underscores", () => {
@@ -50,6 +50,17 @@ test("filename tag uses the sanitised programme name without stray underscores",
 test("single-programme files get no tag and nothing muted", () => {
   const one: AdmProgramme[] = [{ id: "a", name: "Main", language: "en", trackIndices: [0] }];
   expect(programmeFileTag(one, "a")).toBe("");
-  expect(mutedTracks(one, "a").size).toBe(0);
+  expect(mutedTracks(one, "a", 5).size).toBe(0);
   expect(programmeFileTag([], null)).toBe("");
+});
+
+test("multi-programme selection excludes ancillary channels but retains shared tracks", () => {
+  const programmes = analyseAdm(container).programmes;
+  expect([...mutedTracks(programmes, "APR_1002", 5)]).toEqual([0, 4]);
+});
+test("invalid programme selection falls back to first programme", () => {
+  expect([...mutedTracks(analyseAdm(container).programmes, "missing", 5)]).toEqual([1, 4]);
+});
+test("no programmes leave all channels active", () => {
+  expect(mutedTracks([], null, 5).size).toBe(0);
 });

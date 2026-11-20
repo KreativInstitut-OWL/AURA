@@ -24,6 +24,7 @@ export type PreviewRequest = {
     frameCount: number;
     blockAlign: number;
     bitsPerSample: number;
+    isFloat: boolean;
     channels: number;
     sampleRate: number;
   };

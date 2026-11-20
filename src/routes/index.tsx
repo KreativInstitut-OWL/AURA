@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BUILD_TIME } from "@/lib/build-time";
+import { OutputUrlOwner } from "@/lib/output-url";
+import { storageGet, storageSet, storageRemove } from "@/lib/safe-storage";
 import {
   Activity,
   Check,
@@ -251,13 +253,11 @@ function Pill({
 /** Above this size the finished file waits for a real click (Safari crashes on a scripted one). */
 const DIAG_KEY = "aura-crash-diag";
 function diagStep(step: string) {
-  try {
-    const prev = localStorage.getItem(DIAG_KEY) ?? "";
-    localStorage.setItem(DIAG_KEY, `${prev}${new Date().toISOString().slice(11, 19)} ${step}\n`);
-  } catch { /* storage full */ }
+  const prev = storageGet(DIAG_KEY) ?? "";
+  storageSet(DIAG_KEY, `${prev}${new Date().toISOString().slice(11, 19)} ${step}\n`);
 }
 function diagClear() {
-  try { localStorage.removeItem(DIAG_KEY); } catch { /* ignore */ }
+  storageRemove(DIAG_KEY);
 }
 const AUTO_DOWNLOAD_MAX_BYTES = 1024 ** 3;
 
@@ -272,7 +272,7 @@ function Workstation() {
   /** chosen audioProgramme; only meaningful when the file has 2+ programmes */
   const [programmeId, setProgrammeId] = useState<string | null>(null);
   const muted = useMemo(
-    () => mutedTracks(analysis?.programmes ?? [], programmeId),
+    () => mutedTracks(analysis?.programmes ?? [], programmeId, analysis?.container.format.channels ?? 0),
     [analysis, programmeId],
   );
   /** sources of the selected programme; identical to analysis.sources for single-programme files */
@@ -302,6 +302,7 @@ function Workstation() {
   const [bytesWritten, setBytesWritten] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<{ url: string; name: string; auto?: boolean } | null>(null);
+  const outputUrlRef = useRef(new OutputUrlOwner());
   const [playhead, setPlayhead] = useState(0);
   /** peak report of the last finished render, in dBFS */
   const [clip, setClip] = useState<{
@@ -332,6 +333,8 @@ function Workstation() {
     () => () => {
       workerRef.current?.terminate();
       envWorkerRef.current?.terminate();
+      scanWorkerRef.current?.terminate();
+      outputUrlRef.current.clear();
     },
     [],
   );
@@ -420,7 +423,7 @@ function Workstation() {
   // Crash flight recorder: steps survive a Safari tab kill in localStorage.
   const [crashDiag, setCrashDiag] = useState<string | null>(null);
   useEffect(() => {
-    const v = localStorage.getItem(DIAG_KEY);
+    const v = storageGet(DIAG_KEY);
     if (v) setCrashDiag(`${navigator.userAgent}\n${v}`);
   }, []);
 
@@ -486,6 +489,7 @@ function Workstation() {
       setAnalysis(null);
       setProgrammeId(null);
       setContainer(null);
+      outputUrlRef.current.clear();
       setResult(null);
       setChannelMap(null);
       setGainDb(0);
@@ -660,11 +664,10 @@ function Workstation() {
   const startRender = useCallback(async () => {
     if (!file || !analysis) return;
     setError(null);
+    outputUrlRef.current.clear();
     setResult(null);
     setFramesDone(0);
     setBytesWritten(0);
-    diagClear();
-    setCrashDiag(null);
     diagStep(`main: render started, ${(file.size / 1e9).toFixed(2)} GB input`);
 
     setClip(null);
@@ -717,6 +720,7 @@ function Workstation() {
     setRendering(true);
 
     worker.onerror = (ev) => {
+      diagClear();
       setError(`Render worker failed: ${ev.message || "unknown error"}`);
       setRendering(false);
       setPausedClip(null);
@@ -793,7 +797,7 @@ function Workstation() {
         setClip({ peakDb, channel: msg.maxPeakChannel, suggestedGain: suggested });
 
         diagStep(`main: done received, blob ${msg.blob ? (msg.blob.size / 1e9).toFixed(2) + " GB" : "none"}`);
-        const url = msg.blob ? URL.createObjectURL(msg.blob) : "";
+        const url = msg.blob ? outputUrlRef.current.replace(msg.blob) : "";
         diagStep("main: createObjectURL ok");
         // Large files skip the automatic download: Safari turns a late
         // scripted click on a multi-GB file into a page crash, while a real

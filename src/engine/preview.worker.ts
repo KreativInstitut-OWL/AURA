@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { activeAt, positionAt } from "./adm";
+import { makeDecoder } from "./decode-pcm";
 import { channelCount, encodeDirection } from "./sh";
 import type { PreviewRequest, PreviewResponse } from "./preview-types";
 import { LFE_GAIN_VALUE, type RenderSource } from "./types";
@@ -53,17 +54,6 @@ class Butterworth4 {
   }
 }
 
-function makeDecoder(bits: number) {
-  if (bits === 24)
-    return (b: Uint8Array, o: number) =>
-      (((b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16)) << 8) >> 8) / 8388608;
-  if (bits === 16) return (b: Uint8Array, o: number) => (((b[o]! | (b[o + 1]! << 8)) << 16) >> 16) / 32768;
-  if (bits === 32)
-    return (b: Uint8Array, o: number) =>
-      (b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16) | (b[o + 3]! << 24)) / 2147483648;
-  throw new Error(`Unsupported bit depth: ${bits}`);
-}
-
 const post = (msg: PreviewResponse, transfer: Transferable[] = []) =>
   (self as unknown as Worker).postMessage(msg, transfer);
 
@@ -74,7 +64,7 @@ async function renderPreview(req: PreviewRequest) {
   const available = container.frameCount - start;
   const totalFrames = Math.max(0, Math.min(available, req.maxFrames));
   const truncated = available > totalFrames;
-  const decode = makeDecoder(container.bitsPerSample);
+  const decode = makeDecoder(container.bitsPerSample, container.isFloat);
 
   const sources = req.sources.filter((s) => !(s.isLFE && req.lfeMode === "exclude"));
   const beds = sources.filter((s) => s.kind === "bed" && !s.isLFE);

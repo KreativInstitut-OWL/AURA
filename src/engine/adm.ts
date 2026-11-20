@@ -323,12 +323,13 @@ export function resolveProgrammes(doc: Document, container: ContainerInfo): AdmP
 }
 
 /** Tracks muted by a programme choice; empty unless the file offers 2+ programmes. */
-export function mutedTracks(programmes: AdmProgramme[], selectedId: string | null): Set<number> {
+export function mutedTracks(programmes: AdmProgramme[], selectedId: string | null, channelCount: number): Set<number> {
   if (programmes.length <= 1) return new Set();
-  const sel = programmes.find((p) => p.id === selectedId) ?? programmes[0]!;
+  const sel = programmes.find((p) => p.id === selectedId) ?? programmes[0];
+  if (!sel) return new Set();
   const keep = new Set(sel.trackIndices);
   const muted = new Set<number>();
-  for (const p of programmes) for (const t of p.trackIndices) if (!keep.has(t)) muted.add(t);
+  for (let t = 0; t < channelCount; t++) if (!keep.has(t)) muted.add(t);
   return muted;
 }
 

@@ -112,6 +112,8 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
 
   // Peak estimates encode only the requested windows; renders cover the whole file.
   const ranges: [number, number][] = scan && req.windows && req.windows.length > 0 ? req.windows : [[0, totalFrames]];
+  const workload = scan ? ranges.reduce((sum, [start, end]) => sum + end - start, 0) : totalFrames;
+  let scannedFrames = 0;
   for (const [rangeStart, rangeEnd] of ranges) {
   frame = rangeStart;
   while (frame < rangeEnd) {
@@ -240,13 +242,14 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
     if (!scan) await write(outBytes.subarray(0, M * frames * 3));
 
     frame += frames;
+    if (scan) scannedFrames += frames;
     const now = performance.now();
-    if (now - lastPost > 120 || frame >= totalFrames) {
+    if (now - lastPost > 120 || (scan ? scannedFrames >= workload : frame >= totalFrames)) {
       lastPost = now;
       post({
         type: "progress",
-        framesDone: frame,
-        totalFrames,
+        framesDone: scan ? scannedFrames : frame,
+        totalFrames: workload,
         peaks: new Float32Array(peaks),
         bytesWritten,
         elapsedMs: now - started - pausedMs,

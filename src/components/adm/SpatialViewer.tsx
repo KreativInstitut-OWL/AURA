@@ -322,6 +322,8 @@ export function SpatialViewer({
       onPointerUp={() => {
         dragRef.current = null;
       }}
+      onPointerCancel={() => { dragRef.current = null; }}
+      onLostPointerCapture={() => { dragRef.current = null; }}
     />
       <button
         type="button"

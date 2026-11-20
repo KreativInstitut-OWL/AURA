@@ -2,7 +2,17 @@
 
 All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 
-## [0.9.2] — 2026-11-19 (current release)
+## [0.9.3] — 2026-11-20 (current release)
+
+### Fixed
+- Retire previous render download URLs after a download-handoff grace period on replacement, new file and unmount.
+- Retained audition workers decode IEEE float correctly; the window decoder also accepts BW64.
+- Peak estimate progress measures candidate-window workload instead of whole-file position.
+- Multi-programme selection excludes all unselected and unreferenced tracks, retaining shared tracks.
+- Interrupted pointer gestures release viewer drag state.
+- Denied browser storage no longer interrupts theme switching or crash-record reads; existing guarded sibling accesses remain safe.
+
+## [0.9.2] — 2026-11-19
 
 ### Added
 - Crash notice can be dismissed ("Dismiss" / "Verwerfen"); it stays gone after reload.

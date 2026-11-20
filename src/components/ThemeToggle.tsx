@@ -1,5 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { storageGet, storageSet } from "@/lib/safe-storage";
 
 type Mode = "light" | "dark";
 
@@ -13,7 +14,7 @@ export function useThemeMode() {
   const [mode, setMode] = useState<Mode>("light");
 
   useEffect(() => {
-    const stored = localStorage.getItem(KEY);
+    const stored = storageGet(KEY);
     const initial: Mode =
       stored === "dark" || stored === "light"
         ? stored
@@ -27,7 +28,7 @@ export function useThemeMode() {
   const toggle = () => {
     setMode((m) => {
       const next: Mode = m === "dark" ? "light" : "dark";
-      localStorage.setItem(KEY, next);
+      storageSet(KEY, next);
       apply(next);
       return next;
     });

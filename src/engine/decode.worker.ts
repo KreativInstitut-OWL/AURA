@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import { makeDecoder } from "./decode-pcm";
 /**
  * Decodes a window of an already rendered AmbiX file back into planar
  * Float32 channels for the binaural audition. Only the channels the HOAST
@@ -38,28 +39,17 @@ async function view(blob: Blob, offset: number, length: number) {
   return new DataView(await blob.slice(offset, offset + length).arrayBuffer());
 }
 
-function makeDecoder(bits: number) {
-  if (bits === 24)
-    return (b: Uint8Array, o: number) =>
-      (((b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16)) << 8) >> 8) / 8388608;
-  if (bits === 16)
-    return (b: Uint8Array, o: number) => (((b[o]! | (b[o + 1]! << 8)) << 16) >> 16) / 32768;
-  if (bits === 32)
-    return (b: Uint8Array, o: number) =>
-      (b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16) | (b[o + 3]! << 24)) / 2147483648;
-  throw new Error(`Unsupported bit depth: ${bits}`);
-}
-
 async function decode(req: DecodeRequest) {
   const { blob } = req;
   const head = await view(blob, 0, 12);
   const riff = fourCC(head, 0);
-  if ((riff !== "RIFF" && riff !== "RF64") || fourCC(head, 8) !== "WAVE")
-    throw new Error("The rendered file is not a RIFF/RF64 WAVE.");
+  if ((riff !== "RIFF" && riff !== "RF64" && riff !== "BW64") || fourCC(head, 8) !== "WAVE")
+    throw new Error("The rendered file is not a RIFF/RF64/BW64 WAVE.");
 
   let offset = 12;
   let ds64DataSize = -1;
   let fmtOffset = -1;
+  let fmtSize = 0;
   let dataOffset = -1;
   let dataSize = 0;
   while (offset + 8 <= blob.size) {
@@ -71,7 +61,7 @@ async function decode(req: DecodeRequest) {
       const d = await view(blob, body, Math.min(size, 28));
       ds64DataSize = Number(d.getBigUint64(8, true));
     }
-    if (id === "fmt ") fmtOffset = body;
+    if (id === "fmt ") { fmtOffset = body; fmtSize = size; }
     if (id === "data") {
       if (size === 0xffffffff || size === 0) size = ds64DataSize >= 0 ? ds64DataSize : blob.size - body;
       dataOffset = body;
@@ -82,7 +72,14 @@ async function decode(req: DecodeRequest) {
   }
   if (fmtOffset < 0 || dataOffset < 0) throw new Error("Missing fmt/data chunk.");
 
-  const f = await view(blob, fmtOffset, 24);
+  if (fmtSize < 16) throw new Error("Incomplete fmt chunk.");
+  const f = await view(blob, fmtOffset, Math.min(fmtSize, 40));
+  let formatTag = f.getUint16(0, true);
+  if (formatTag === 0xfffe) {
+    if (f.byteLength < 40) throw new Error("Incomplete extensible fmt chunk.");
+    formatTag = f.getUint16(24, true);
+  }
+  if (formatTag !== 1 && formatTag !== 3) throw new Error("PCM or IEEE float required.");
   const channels = f.getUint16(2, true);
   const sampleRate = f.getUint32(4, true);
   const bits = f.getUint16(14, true);
@@ -93,7 +90,7 @@ async function decode(req: DecodeRequest) {
   const keep = Math.min(channels, req.maxChannels);
   const start = Math.max(0, Math.min(req.startFrame, Math.max(0, totalFrames - 1)));
   const frames = Math.max(0, Math.min(totalFrames - start, req.maxFrames));
-  const read = makeDecoder(bits);
+  const read = makeDecoder(bits, formatTag === 3);
 
   const out: Float32Array[] = [];
   for (let c = 0; c < keep; c++) out.push(new Float32Array(frames));
