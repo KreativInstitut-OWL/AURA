@@ -57,6 +57,8 @@ Optional parts only appear when they apply.
 
 Current Chrome, Edge, Firefox and Safari. Chromium-based browsers can write directly to a chosen file; other browsers stage the result in private browser storage before download.
 
+**Safari: keep the AURA window visible during long renders.** When the tab is in the background or the window is minimised, macOS and Safari lower its priority (App Nap), which slows rendering a lot. This is normal browser power management. AURA deliberately does not work around it, for example with silent audio playback. Give AURA its own window, or use a Chromium-based browser.
+
 ## Running locally
 
 Requires [Bun](https://bun.sh) (or Node.js 20+ with npm).
