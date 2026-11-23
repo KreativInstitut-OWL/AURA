@@ -42,7 +42,7 @@ import { analyseAdm, mutedTracks, programmeFileTag, BED_ORDER, BED_PROFILES, def
 import { parseContainer } from "@/engine/container";
 import { channelCount } from "@/engine/sh";
 
-import { ENVELOPE_BIN_SEC } from "@/engine/types";
+import { DEFAULT_LFE_GAIN, ENVELOPE_BIN_SEC } from "@/engine/types";
 import { peakWindows } from "@/engine/peak-windows";
 import type {
   AnalysisResult,
@@ -173,7 +173,6 @@ const LFE_ROUTINGS: [LfeRouting, string, string, string, string][] = [
 ];
 
 const LFE_GAINS: [LfeGain, string, string, string][] = [
-  ["minus3", "−3 dB", "constant power", "konstante Schallleistung"],
   ["unity", "0 dB", "unity", "Unity"],
   ["plus10", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
 ];
@@ -285,7 +284,7 @@ function Workstation() {
 
   const [order, setOrder] = useState<Order>(3);
   const [lfeRouting, setLfeRouting] = useState<LfeRouting>("omni");
-  const [lfeGain, setLfeGain] = useState<LfeGain>("minus3");
+  const [lfeGain, setLfeGain] = useState<LfeGain>(DEFAULT_LFE_GAIN);
 
   const [gainDb, setGainDb] = useState(0);
   /** On-demand peak pre-scan, measured at 0 dB master gain (encoding is linear). */
@@ -678,7 +677,7 @@ function Workstation() {
     const hasLfe = activeSources.some((s) => s.isLFE);
     const routeTag =
       lfeRouting === "omni" ? "omni" : lfeRouting === "down" ? "down" : "pos";
-    const levelTag = lfeGain === "minus3" ? "-3dB" : lfeGain === "unity" ? "0dB" : "+10dB";
+    const levelTag = lfeGain === "unity" ? "" : "+10dB";
     const lfeTag = !hasLfe ? "" : lfeRouting === "off" ? "_noLFE" : `_LFE${routeTag}${levelTag}`;
     // Only tag the gain when it differs from unity.
     const gainTag =
@@ -1308,8 +1307,7 @@ function Workstation() {
                   disabled={rendering}
                   onClick={() => {
                     setLfeRouting(mode);
-                    if (mode === "omni") setLfeGain("minus3");
-                    else if (mode !== "off") setLfeGain("unity");
+                    if (mode !== "off") setLfeGain(DEFAULT_LFE_GAIN);
                   }}
                 >
                   {t(labelEn, labelDe)}

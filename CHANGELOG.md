@@ -2,7 +2,15 @@
 
 All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 
-## [0.9.3] — 2026-11-20 (current release)
+## [0.9.4] — 2026-11-23 (current release)
+
+### Changed
+- Removed the −3 dB LFE preset and its unsupported constant-power label.
+- LFE gain defaults to 0 dB (unity) for every active route; +10 dB remains available.
+- Render and retained audition worker fallbacks use unity instead of −3 dB.
+- Unity LFE exports retain the route tag but omit the redundant `0dB` level suffix.
+
+## [0.9.3] — 2026-11-20
 
 ### Fixed
 - Retire previous render download URLs after a download-handoff grace period on replacement, new file and unmount.

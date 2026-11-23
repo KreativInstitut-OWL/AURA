@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Remove the −3 dB LFE preset, verify unity defaults and output, and update release metadata.
+
 - [x] Verify output URL retirement and download handoff.
 - [x] Verify dormant IEEE float/BW64 decoding.
 - [x] Verify monotonic candidate-window scan progress.

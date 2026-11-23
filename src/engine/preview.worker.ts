@@ -108,7 +108,7 @@ async function renderPreview(req: PreviewRequest) {
 
     for (const l of lfes) {
       const filt = lfeFilters.get(l)!;
-      const g = (LFE_GAIN_VALUE[req.lfeMode as keyof typeof LFE_GAIN_VALUE] ?? Math.SQRT1_2) * req.masterGain;
+      const g = (LFE_GAIN_VALUE[req.lfeMode as keyof typeof LFE_GAIN_VALUE] ?? 1) * req.masterGain;
       const chOff = l.channelIndex * bytesPerSample;
       const w = out[0]!;
       for (let f = 0; f < frames; f++) {

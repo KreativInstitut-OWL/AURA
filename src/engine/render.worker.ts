@@ -167,7 +167,7 @@ async function render(req: WorkerRequest, gate: ClippingGate) {
     for (const l of lfes) {
       const filt = lfeFilters.get(l)!;
       const C = lfeCoeffs.get(l)!;
-      const g = (LFE_GAIN_VALUE[config.lfeGain] ?? Math.SQRT1_2) * config.masterGain;
+      const g = (LFE_GAIN_VALUE[config.lfeGain] ?? 1) * config.masterGain;
       const x = decoded.get(l.channelIndex)!;
       for (let f = 0; f < frames; f++) sig[f] = filt.process(x[f]!) * g;
       for (let c = 0; c < M; c++) {

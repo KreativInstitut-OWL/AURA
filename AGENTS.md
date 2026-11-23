@@ -29,3 +29,4 @@
 - Programme muting receives the full input channel count; exclusivity must also exclude tracks outside every programme.
 - Peak scan progress reports completed candidate-window frames; render progress remains absolute file frames.
 - Optional browser persistence uses guarded access; unavailable storage must not interrupt the workstation.
+- LFE level options and the shared default live in `src/engine/types.ts`; the workstation uses that default on initialization and active-route changes to prevent divergent defaults.

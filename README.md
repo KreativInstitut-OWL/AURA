@@ -25,7 +25,7 @@ AURA skips the loudspeaker stage. Every bed channel and every moving object is e
   - Explicit coordinates in the file always take precedence over nominal speaker angles.
 - **Multi-programme (NGA) files** — files with several `audioProgramme`s (e.g. language versions) get a programme picker; other versions are muted and the programme name is added to the export filename. Single-programme files are unaffected.
 - **Time-multiplexed objects** — objects sharing one physical track are only audible inside their own `start`/`duration` window.
-- **LFE handling** — 120 Hz 4th-order Butterworth low-pass; routes *Omni*, *Lower hemisphere*, *Position* or *Off*; separate gain (−3 / 0 / +10 dB).
+- **LFE handling** — 120 Hz 4th-order Butterworth low-pass; routes *Omni*, *Lower hemisphere*, *Position* or *Off*; separate gain (0 dB unity, default for all routes, or +10 dB).
 - **Peak estimate and clipping safety** — fast pre-scan suggests a safe master gain; rendering pauses on clipping so you can cancel or continue. No hidden limiter.
 - **3D trajectory viewer** — bed anchors, animated object paths and level-driven markers.
 - **Track & Source Inspector** — shows how each track was resolved (bed, object, skipped, unresolved) plus a copyable diagnostics report.

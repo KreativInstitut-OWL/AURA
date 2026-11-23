@@ -109,10 +109,11 @@ export interface AnalysisResult {
 export type LfeRouting = "omni" | "down" | "position" | "off";
 
 /** Level of the low-passed LFE, independent of the routing choice. */
-export type LfeGain = "minus3" | "unity" | "plus10";
+export type LfeGain = "unity" | "plus10";
+
+export const DEFAULT_LFE_GAIN: LfeGain = "unity";
 
 export const LFE_GAIN_VALUE: Record<LfeGain, number> = {
-  minus3: Math.SQRT1_2, // -3 dB acoustic power match
   unity: 1, // 0 dB
   plus10: Math.pow(10, 10 / 20), // +10 dB Dolby subwoofer calibration
 };
