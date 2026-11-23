@@ -2,7 +2,12 @@
 
 All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 
-## [0.9.5] — 2026-11-23 (current release)
+## [0.9.6] — 2026-11-23 (current release)
+
+### Added
+- Supplied AURA Open Graph preview image for link sharing, with matching Twitter image metadata and absolute URLs derived from the serving site.
+
+## [0.9.5] — 2026-11-23
 
 ### Changed
 - Renamed the +10 dB LFE label to “Dolby LFE playback offset” / “Dolby-LFE-Playback-Offset”; audio processing is unchanged.

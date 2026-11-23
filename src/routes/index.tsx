@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BUILD_TIME } from "@/lib/build-time";
+import { getRequestOrigin } from "@/lib/origin.functions";
+import shareImage from "@/assets/aura-og-preview-v7.png.asset.json";
 import { OutputUrlOwner } from "@/lib/output-url";
 import { storageGet, storageSet, storageRemove } from "@/lib/safe-storage";
 import {
@@ -72,7 +74,8 @@ const ITU_13_1_ROWS = (() => {
 })();
 
 export const Route = createFileRoute("/")({
-  head: () => ({
+  loader: async () => ({ origin: await getRequestOrigin() }),
+  head: ({ loaderData }) => ({
     meta: [
       { title: "AURA — ADM Universal Renderer into Ambisonics" },
       {
@@ -87,6 +90,14 @@ export const Route = createFileRoute("/")({
           "Stream map, spatial monitoring and AmbiX export from ADM masters — entirely client-side, nothing is uploaded.",
       },
       { property: "og:type", content: "website" },
+      ...(loaderData ? [
+        { property: "og:image", content: new URL(shareImage.url, loaderData.origin).href },
+        { name: "twitter:image", content: new URL(shareImage.url, loaderData.origin).href },
+      ] : []),
+      { property: "og:image:type", content: shareImage.content_type },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "AURA — ADM Universal Renderer into Ambisonics, with a spatial audio object view." },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),

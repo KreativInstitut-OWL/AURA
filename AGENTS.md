@@ -30,3 +30,4 @@
 - Peak scan progress reports completed candidate-window frames; render progress remains absolute file frames.
 - Optional browser persistence uses guarded access; unavailable storage must not interrupt the workstation.
 - LFE level options and the shared default live in `src/engine/types.ts`; the workstation uses that default on initialization and active-route changes to prevent divergent defaults.
+- Share images use CDN asset pointers and the leaf route derives absolute URLs through a request-origin server function; this keeps previews valid across deployment hosts without hardcoding a domain.
