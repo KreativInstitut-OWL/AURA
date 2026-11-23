@@ -174,7 +174,7 @@ const LFE_ROUTINGS: [LfeRouting, string, string, string, string][] = [
 
 const LFE_GAINS: [LfeGain, string, string, string][] = [
   ["unity", "0 dB", "unity", "Unity"],
-  ["plus10", "+10 dB", "Dolby sub calibration", "Dolby-Sub-Kalibrierung"],
+  ["plus10", "+10 dB", "Dolby LFE playback offset", "Dolby-LFE-Playback-Offset"],
 ];
 
 

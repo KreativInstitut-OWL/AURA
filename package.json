@@ -1,6 +1,6 @@
 {
   "name": "aura-renderer",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "ADM Universal Renderer into Ambisonics — client-side ITU-R BS.2076 to AmbiX workstation",
   "private": true,
   "sideEffects": false,
