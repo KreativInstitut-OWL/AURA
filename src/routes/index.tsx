@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BUILD_TIME } from "@/lib/build-time";
 import { getRequestOrigin } from "@/lib/origin.functions";
-import shareImage from "@/assets/aura-og-preview-v7.png.asset.json";
 import { OutputUrlOwner } from "@/lib/output-url";
 import { storageGet, storageSet, storageRemove } from "@/lib/safe-storage";
 import {
@@ -91,10 +90,10 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       ...(loaderData ? [
-        { property: "og:image", content: new URL(shareImage.url, loaderData.origin).href },
-        { name: "twitter:image", content: new URL(shareImage.url, loaderData.origin).href },
+        { property: "og:image", content: new URL("/aura-og-preview-v7.png", loaderData.origin).href },
+        { name: "twitter:image", content: new URL("/aura-og-preview-v7.png", loaderData.origin).href },
       ] : []),
-      { property: "og:image:type", content: shareImage.content_type },
+      { property: "og:image:type", content: "image/png" },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { property: "og:image:alt", content: "AURA — ADM Universal Renderer into Ambisonics, with a spatial audio object view." },

@@ -2,7 +2,12 @@
 
 All notable changes to AURA. Dates are UTC. Versions are grouped by milestone.
 
-## [0.9.6] — 2026-11-23 (current release)
+## [0.9.7] — 2026-11-23 (current release)
+
+### Changed
+- Bundled the actual Open Graph PNG in the repository instead of a CDN pointer, keeping share previews independent of Lovable asset serving.
+
+## [0.9.6] — 2026-11-23
 
 ### Added
 - Supplied AURA Open Graph preview image for link sharing, with matching Twitter image metadata and absolute URLs derived from the serving site.
